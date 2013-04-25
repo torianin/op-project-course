@@ -1,6 +1,8 @@
+#-*- coding: utf-8 -*-
+
 require 'rubygems'
 require 'em-websocket'
-require 'sinatra/base'
+require 'sinatra'
 require 'thin'
 require 'coffee-script'
 
@@ -37,5 +39,5 @@ EventMachine.run do
       end
 
   end
-  App.run!({:port => 3000})
+  App.run!({:bind => "0.0.0.0", :port => 4567})
 end
