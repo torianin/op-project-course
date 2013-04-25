@@ -23,19 +23,31 @@ $(document).ready ->
 drawCanvas = (angelCharacter) ->
   c = document.getElementById("game")
   ctx = c.getContext("2d")
-  ctx.font = "30px Arial"
+  ctx.font = "15px Arial"
   angelCharacter.img.onload = ->
-    ctx.drawImage angelCharacter.img, angelCharacter.x, angelCharacter.y
-    ctx.fillText angelCharacter.name, 10, 50
+    setInterval ( ->
+      angelCharacter.update ctx
+    ), 30
 
 #Objects
 class angelCharacter
   x: 0
   y: 0
   url: "./img/angel.png"
+  backgroundurl: "./img/background.png"
   constructor: (@name) ->
     @img = new Image()
     @img.src = @url
-  move: ->
-    @y += 60
+    @background = new Image()
+    @background.src = @backgroundurl
+  update: (ctx) ->
+    if @y < 540  then @y = @y + 1 else @y = 0
+    @y = @y + 1
+    ctx.drawImage @background, 0, 0
+    ctx.drawImage @background, 0, 0
+    console.log("Updating position: y: #{@y}")
+    @draw(ctx)    
+  draw: (ctx) ->
+    ctx.drawImage @img, @x, @y
+    ctx.fillText @name, @x+5, @y+70
 
