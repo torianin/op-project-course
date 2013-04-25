@@ -1,19 +1,19 @@
 $(document).ready ->
-
   
-  debug = (str) ->
-    $("#debug").append "<p>" + str + "</p>"
-
+  $("#canvasWrapper").keypress (e) ->
+    keys[e.keyCode] = true
+    console.log "key pressed!"
+   
   ws = new WebSocket("ws://0.0.0.0:8080")
 
   ws.onmessage = (evt) ->
-    $("#msg").append "<p>" + evt.data + "</p>"
+    console.log evt.data
 
   ws.onclose = ->
-    debug "socket closed"
+    console.log "socket closed"
 
   ws.onopen = ->
-    debug "connected..."
+    console.log "connected..."
     test = prompt("Podaj imie:", "Robert")
     character = new angelCharacter test
     drawCanvas character
@@ -24,11 +24,18 @@ drawCanvas = (angelCharacter) ->
   c = document.getElementById("game")
   ctx = c.getContext("2d")
   ctx.font = "30px Arial"
-  ctx.fillText(angelCharacter.name,10,50)
+  angelCharacter.img.onload = ->
+    ctx.drawImage angelCharacter.img, angelCharacter.x, angelCharacter.y
+    ctx.fillText angelCharacter.name, 10, 50
 
 #Objects
 class angelCharacter
+  x: 0
+  y: 0
+  url: "./img/angel.png"
   constructor: (@name) ->
-    alert @name
-#  @url: "./img/angel.png"
+    @img = new Image()
+    @img.src = @url
+  move: ->
+    @y += 60
 
