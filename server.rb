@@ -5,7 +5,7 @@ require 'rubygems'
 require 'bundler/setup'
 
 require 'em-websocket'
-require 'sinatra'
+require 'sinatra/base'
 require 'thin'
 
 require 'coffee-script'
@@ -43,5 +43,6 @@ EventMachine.run do
       end
 
   end
-  App.run!({:bind => "0.0.0.0", :port => 8081})
+  
+  App.run!(:bind => '127.0.0.1', :port => 8081)
 end

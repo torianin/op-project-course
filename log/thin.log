@@ -1,0 +1,69 @@
+>> Writing PID to tmp/pids/thin.pid
+>> Changing process privilege to root:root
+Couldn't change user and group to root:root: Operation not permitted - tmp/pids/thin.pid
+== Sinatra/1.4.2 has taken the stage on 8081 for production with backup from Thin
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on 0.0.0.0:8081, CTRL+C to stop
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on ./thin.sock, CTRL+C to stop
+>> Writing PID to tmp/pids/thin.pid
+>> Changing process privilege to root:root
+Couldn't change user and group to root:root: Operation not permitted - tmp/pids/thin.pid
+== Sinatra/1.4.2 has taken the stage on 8081 for production with backup from Thin
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on 0.0.0.0:8081, CTRL+C to stop
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on ./thin.sock, CTRL+C to stop
+>> Writing PID to tmp/pids/thin.pid
+>> Changing process privilege to www-data:www-data
+Couldn't change user and group to www-data:www-data: Operation not permitted - tmp/pids/thin.pid
+== Sinatra/1.4.2 has taken the stage on 8081 for production with backup from Thin
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on 0.0.0.0:8081, CTRL+C to stop
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on /tmp/thin.sock, CTRL+C to stop
+>> Writing PID to tmp/pids/thin.pid
+>> Changing process privilege to www-data:www-data
+Couldn't change user and group to www-data:www-data: Operation not permitted - tmp/pids/thin.pid
+== Sinatra/1.4.2 has taken the stage on 8081 for production with backup from Thin
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on 0.0.0.0:8081, CTRL+C to stop
+>> Writing PID to tmp/pids/thin.pid
+>> Changing process privilege to www-data:www-data
+== Sinatra/1.4.2 has taken the stage on 8081 for production with backup from Thin
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on 0.0.0.0:8081, CTRL+C to stop
+>> Thin web server (v1.5.1 codename Straight Razor)
+>> Maximum connections set to 1024
+>> Listening on /tmp/thin.sock, CTRL+C to stop
+/var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/backends/unix_server.rb:44:in `delete': Operation not permitted - /tmp/thin.sock (Errno::EPERM)
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/backends/unix_server.rb:44:in `remove_socket_file'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/backends/unix_server.rb:16:in `block in connect'
+>> Exiting!
+/var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/daemonizing.rb:160:in `delete': Permission denied - tmp/pids/thin.pid (Errno::EACCES)
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/daemonizing.rb:160:in `remove_pid_file'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/daemonizing.rb:62:in `block in daemonize'
+/var/lib/gems/1.9.1/gems/eventmachine-1.0.3/lib/eventmachine.rb:528:in `start_unix_server': no unix-domain acceptor (RuntimeError)
+	from /var/lib/gems/1.9.1/gems/eventmachine-1.0.3/lib/eventmachine.rb:528:in `start_server'
+	from /var/lib/gems/1.9.1/gems/eventmachine-1.0.3/lib/eventmachine.rb:548:in `start_unix_domain_server'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/backends/unix_server.rb:19:in `connect'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/backends/base.rb:55:in `block in start'
+	from /var/lib/gems/1.9.1/gems/eventmachine-1.0.3/lib/eventmachine.rb:187:in `call'
+	from /var/lib/gems/1.9.1/gems/eventmachine-1.0.3/lib/eventmachine.rb:187:in `run_machine'
+	from /var/lib/gems/1.9.1/gems/eventmachine-1.0.3/lib/eventmachine.rb:187:in `run'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/backends/base.rb:63:in `start'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/server.rb:159:in `start'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/controllers/controller.rb:86:in `start'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/runner.rb:187:in `run_command'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/lib/thin/runner.rb:152:in `run!'
+	from /var/lib/gems/1.9.1/gems/thin-1.5.1/bin/thin:6:in `<top (required)>'
+	from /usr/local/bin/thin:23:in `load'
+	from /usr/local/bin/thin:23:in `<main>'
