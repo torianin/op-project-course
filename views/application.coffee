@@ -1,7 +1,7 @@
 $(document).ready ->
 
 
-  ws = new WebSocket("ws://90.156.93.154:8080")
+  ws = new WebSocket("ws://37.187.40.7:8080")
 
   ws.onmessage = (evt) ->
     console.log evt.data
