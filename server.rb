@@ -62,12 +62,13 @@ EventMachine.run do
     end
     socket.onmessage do |mess|
       puts "wykonuje nowe dzialanie" 
-      specials = ['l','r','t','b']
+      specials = ['l','r','t','b','m']
       $players.each {|p| p.x -= 50 if p.socket == socket && mess == 'l'}
       $players.each {|p| p.x += 50 if p.socket == socket && mess == 'r'}
       $players.each {|p| p.y -= 50 if p.socket == socket && mess == 't'}
       $players.each {|p| p.y += 50 if p.socket == socket && mess == 'b'}
-      $players.each {|p| p.name = mess if p.socket == socket && !specials.include?(mess) }
+      $players.each {|p| $players.each {|s| s.socket.send "#{p.name}: #{mess[1..mess.size]}"} if p.socket == socket && mess[0] == 'm'}
+      $players.each {|p| p.name = mess if p.socket == socket && !specials.include?(mess[0]) }
     end
     socket.onclose do
       puts "gracz odszedl"
@@ -75,6 +76,6 @@ EventMachine.run do
     end
   end
   
-  App.run!(:bind => '127.0.0.1', :port => 8081)
+  App.run!(:bind => "127.0.0.1", :port => 8081)
 end
 

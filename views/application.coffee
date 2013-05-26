@@ -1,56 +1,87 @@
 $(document).ready ->
-  window.ws = new WebSocket("ws://37.187.40.7:8080") 
-  window.ws.onopen = ->
-    console.log "connected..."
-    name = prompt("Podaj imie:", "Robert")
-    window.ws.send name
-    $.getJSON "http://torianinmobile.pl/api/map.json", (data) ->
-      window.data = data
-      window.canvas = new gameCanvas
-      window.canvas.draw()
-      setInterval () ->
-        window.canvas.update()
-      , 100
-  window.ws.onmessage = (evt) ->
-    console.log evt.data
-  window.ws.onclose = ->
-    console.log "socket closed"
+  alertify.prompt "Podaj nick", ((e, str) -> 
+    if e
+      window.ws = new WebSocket("ws://torianinmobile.pl:8080")
+      window.ws.onopen = ->
+        alertify.success "Connected to server"
+        window.ws.send str
+        $.getJSON "http://torianinmobile.pl/api/map.json", (data) ->
+          window.data = data
+          window.map = new map
+          cq().framework(
+            onResize: (width, height) ->
+              @canvas.width = width
+              @canvas.height = height
 
-class gameCanvas
-  @img
-  constructor: (ws)  ->
-    @ws = ws
-    @c = document.getElementById("game")
-    @ctx = @c.getContext("2d")
-    @ctx.font = "15px Arial"
+            onStep: (delta) ->
+              $.getJSON "http://torianinmobile.pl/api/map.json", (data) ->
+                window.data = data
+
+            onRender: ->
+              @save()
+                .clear("#00a2e8")
+                .drawImage(window.map.background, 0, 0)
+                .drawImage(window.map.background, 640, 0)
+                .drawImage(window.map.background, 1280, 0)
+              for i in [0...window.data.id.length]
+                @save()
+                  .drawImage(window.map.playerimg, window.data.coordinates[i][0], window.data.coordinates[i][1])
+                  .fillStyle("#000000")
+                  .wrappedText window.data.name[i], window.data.coordinates[i][0]+5, window.data.coordinates[i][1]+70, 20
+
+            onMouseDown: (x, y) ->
+              alertify.success "#{x}, #{y}"
+
+            onMouseUp: (x, y) ->
+
+            onMouseMove: (x, y) ->
+
+            onKeyDown: (key) ->
+              window.ws.send "b" if key is ("s" or "down") # Down
+              window.ws.send "t" if key is ("w" or "up") # Up
+              if key is ("d" or "right") # Right  
+                window.map.playerimg.src = window.map.url
+                window.ws.send "r" 
+              if key is ("a" or "left") # Left  
+                window.map.playerimg.src = window.map.url_rotate
+                window.ws.send "l" 
+              if key is "t" # Right  
+                str = prompt("Napisz wiadomosc","")
+                window.ws.send "m#{str}"
+
+
+            onKeyUp: (key) ->
+
+            onSwipe: (direction) ->
+              window.ws.send "b" if direction is "down" # Down
+              window.ws.send "t" if direction is "up" # Up
+              if direction is "right" # Right  
+                window.map.playerimg.src = window.map.url
+                window.ws.send "r" 
+              if direction is "left" # Right  
+                window.map.playerimg.src = window.map.url_rotate
+                window.ws.send "l" 
+
+            onDropImage: (image) ->
+
+            ).appendTo "body"
+
+      window.ws.onmessage = (evt) ->
+        alertify.log(evt.data)
+
+      window.ws.onclose = ->
+        alertify.error("Can't connect to server")
+    else
+      # user clicked "cancel"
+    ), "Robert"
+
+class map
+  constructor: (data)  ->
     @url = "./img/angel.png"
     @url_rotate = "./img/angel_rotate.png"
     @backgroundurl = "./img/background.png"
-  draw: ->
-    console.log "dziala"
-    @img = new Image()
-    @img.src = @url
+    @playerimg = new Image()
+    @playerimg.src = @url
     @background = new Image()
     @background.src = @backgroundurl
-    @ctx.drawImage @background, 0, 0
-    for i in [0...window.data.id.length]
-      @ctx.fillText window.data.name[i], window.data.coordinates[i][0]+5, window.data.coordinates[i][1]+70
-  update: ->
-    if window.addEventListener
-      addEventListener 'keydown', keydown, yes
-    $.getJSON "http://torianinmobile.pl/api/map.json", (data) ->
-      window.data = data
-    @ctx.drawImage @background, 0, 0
-    for i in [0...window.data.id.length]
-      @ctx.drawImage @img, window.data.coordinates[i][0], window.data.coordinates[i][1]
-      @ctx.fillText window.data.name[i], window.data.coordinates[i][0]+5, window.data.coordinates[i][1]+70
-  keydown = (e) ->
-    # console.log e.keyCode
-    window.ws.send "b" if e.keyCode is (83 or 40) # Down
-    window.ws.send "t" if e.keyCode is (87 or 38) # Up
-    if e.keyCode is (68 or 39) # Right  
-      window.canvas.img.src = window.canvas.url
-      window.ws.send "r" 
-    if e.keyCode is (65 or 37) # Left
-      window.canvas.img.src = window.canvas.url_rotate
-      window.ws.send "l" 
+
