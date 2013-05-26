@@ -58,12 +58,16 @@ EventMachine.run do
   EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |socket|
     socket.onopen do
       puts "dolaczyl nowy gracz" 
-      $players << Player.new(socket,"Robert",0,0) if $players.size < 10
+      $players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $players.size < 10
     end
     socket.onmessage do |mess|
-      puts "nadaje mu nowe imie" 
-      $players.each {|p| p.name = mess if p.socket == socket}
-      #$sockets.each {|s| s.send mess}
+      puts "wykonuje nowe dzialanie" 
+      specials = ['l','r','t','b']
+      $players.each {|p| p.x -= 50 if p.socket == socket && mess == 'l'}
+      $players.each {|p| p.x += 50 if p.socket == socket && mess == 'r'}
+      $players.each {|p| p.y -= 50 if p.socket == socket && mess == 't'}
+      $players.each {|p| p.y += 50 if p.socket == socket && mess == 'b'}
+      $players.each {|p| p.name = mess if p.socket == socket && !specials.include?(mess) }
     end
     socket.onclose do
       puts "gracz odszedl"
