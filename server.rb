@@ -12,7 +12,7 @@ require 'coffee-script'
 require 'json'
 
 class Player
-  attr_accessor :id,:name,:socket,:x,:y,:rotate
+  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height
   @@instances = 0
   def initialize(socket,name,x,y)
     @@instances += 1
@@ -22,14 +22,34 @@ class Player
     @y = y
     @rotate = 0
     @socket = socket
+    @width = 60
+    @height = 60
+  end
+  def update(direction)
+    if direction == 'l'
+      @x -= 50 
+      @rotate = 1
+    end
+    if direction == 'r'
+      @x += 50
+      @rotate = 0
+    end
+    @y -= 50 if direction == 't'
+    @y += 50 if direction == 'b'
+  end
+  def grow(bullet)
+    $map.players.each {|p| p.bullet = nil if p.bullet == bullet}
+    @width += 10 if @width < 120
+    @height += 10 if @height < 120
   end
 end
 
 class Bullet
   attr_accessor :x,:y,:diff,:a,:b,:aunit,:bunit
-  def initialize(coordinates1,coordinates2)
-    @x = coordinates1[0]
-    @y = coordinates1[1]
+  def initialize(player,coordinates1,coordinates2)
+    @player = player
+    @x = coordinates1[0]+20
+    @y = coordinates1[1]+20
     @diff = [coordinates2[0]-coordinates1[0], coordinates2[1]-coordinates1[1]]
     self.unit()
   end
@@ -45,19 +65,50 @@ class Bullet
     return [@aunit,@bunit]
   end
   def update
-    @x += @aunit
-    @y += @bunit
+    @x += @aunit*20
+    @y += @bunit*20
+    $map.players.each {|p| p.grow(self) if ((@y > p.y ) && (@y < p.y + p.height) && (@x > p.x ) && (@x < p.x + p.width)) && p!=@player}
   end
 end
 
 class Map
-  @@instances = 0
+  attr_accessor :players
+  def initialize()
+    @players = []
+  end
+  def update
+    if Time.now().to_ms - $previous_time.to_ms > 16
+      $map.players.each do |player|
+        player.bullet.update if !(player.bullet==nil)
+      end
+      $previous_time = Time.now()
+    end
+    ids = Array.new
+    @players.each{|p| ids << p.id}
+    names = Array.new
+    @players.each{|p| names << p.name}
+    coordinates = Array.new
+    @players.each{|p| coordinates << [p.x,p.y]}
+    sizes = Array.new
+    @players.each{|p| sizes << [p.width,p.height]}
+    rotates = Array.new
+    @players.each{|p| rotates << p.rotate}
+    bullets = Array.new
+    @players.each{|p| bullets << [p.bullet.x(),p.bullet.y()] if !(p.bullet==nil)} 
+    dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, :bullets => bullets}.to_json
+  end
 end
 
-$bullets = []
-$bonuses = []
-$players = []
+class Time
+  def to_ms
+    (self.to_f * 1000.0).to_i
+  end
+end
+
 EventMachine.run do
+  $previous_time = Time.now()
+  $map = Map.new()
+
   class App < Sinatra::Base
       get '/' do
           erb :index
@@ -65,47 +116,28 @@ EventMachine.run do
       get "/application.js" do
           coffee :application
       end
-      get "/api/map.json" do
-          $bullets.each do |bullet|
-            puts "update gry"
-            bullet.update()
-          end
-          content_type :json
-          ids = Array.new
-          $players.each{|p| ids << p.id}
-          names = Array.new
-          $players.each{|p| names << p.name}
-          coordinates = Array.new
-          $players.each{|p| coordinates << [p.x,p.y]}
-          rotates = Array.new
-          $players.each{|p| rotates << p.rotate}
-          bullets = Array.new
-          $bullets.each{|p| bullets << [p.x,p.y]}
-          {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :bullets => bullets}.to_json
-      end
   end
 
   EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |socket|
     socket.onopen do
       puts "dolaczyl nowy gracz" 
-      $players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $players.size < 10
+      $map.players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $map.players.size < 10
     end
     socket.onmessage do |mess|
-      puts "wykonuje nowe dzialanie" 
-      specials = ['l','r','t','b','m','p']
-      $players.each {|p| p.x -= 50 if p.socket == socket && mess == 'l'}
-      $players.each {|p| p.rotate = 1 if p.socket == socket && mess == 'l'}
-      $players.each {|p| p.x += 50 if p.socket == socket && mess == 'r'}
-      $players.each {|p| p.rotate = 0 if p.socket == socket && mess == 'r'}
-      $players.each {|p| p.y -= 50 if p.socket == socket && mess == 't'}
-      $players.each {|p| p.y += 50 if p.socket == socket && mess == 'b'}
-      $players.each {|p| $bullets << Bullet.new([p.x,p.y], mess[1..mess.size].split(",").map(&:to_i)) if p.socket == socket && mess[0] == 'p'}
-      $players.each {|p| $players.each {|s| s.socket.send "#{p.name}: #{mess[1..mess.size]}"} if p.socket == socket && mess[0] == 'm'}
-      $players.each {|p| p.name = mess if p.socket == socket && !specials.include?(mess[0])}
+      specials = ['l','r','t','b','m','p','i','j']
+      $map.players.each {|p| p.socket.send "i:#{p.id}" if p.socket == socket && mess == 'i'}
+      $map.players.each {|p| $map.players.each {|s| s.socket.send "j:#{$map.update()}"} if mess[0] == 'j'}
+      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'l'}
+      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'r'}
+      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 't'}
+      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'b'}
+      $map.players.each {|p| p.bullet = Bullet.new(p,[p.x,p.y], mess[1..mess.size].split(",").map(&:to_i)) if p.socket == socket && mess[0] == 'p'}
+      $map.players.each {|p| $map.players.each {|s| s.socket.send "#{p.name}: #{mess[1..mess.size]}"} if p.socket == socket && mess[0] == 'm'}
+      $map.players.each {|p| p.name = mess if p.socket == socket && !specials.include?(mess[0])}
     end
     socket.onclose do
       puts "gracz odszedl"
-      $players.each {|p| $players.delete(p) if p.socket == socket}
+      $map.players.each {|p| $map.players.delete(p) if p.socket == socket}
     end
   end
   
