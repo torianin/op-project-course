@@ -12,7 +12,8 @@ require 'coffee-script'
 require 'json'
 
 class Player
-  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height
+
+  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up
   @@instances = 0
   def initialize(socket,name,x,y)
     @@instances += 1
@@ -22,25 +23,35 @@ class Player
     @y = y
     @rotate = 0
     @socket = socket
-    @width = 60
-    @height = 60
+    @width = 100
+    @height = 100
+    @frame = 0
+    @up = true
+    @speed_up = 0
+    @speed_lp = 0
+    @grawity = 0.1
   end
   def update(direction)
     if direction == 'l'
-      @x -= 50 
+      @speed_lp -= 1 if @speed_lp > -10
       @rotate = 1
     end
     if direction == 'r'
-      @x += 50
+      @speed_lp += 1.5 if @speed_lp < 10
       @rotate = 0
     end
-    @y -= 50 if direction == 't'
-    @y += 50 if direction == 'b'
+    @grawity -= 1 if direction == 't' && @grawity > - 2
+    @speed_lp = 0 if direction == 'b' && @speed_up < 2
   end
   def grow(bullet)
     $map.players.each {|p| p.bullet = nil if p.bullet == bullet}
     @width += 10 if @width < 120
     @height += 10 if @height < 120
+  end
+  def move()
+    @grawity = @grawity +  0.025 if @grawity < 2
+    @y += @grawity
+    @x = @x + @speed_lp
   end
 end
 
@@ -79,6 +90,17 @@ class Map
   def update
     if Time.now().to_ms - $previous_time.to_ms > 16
       $map.players.each do |player|
+        player.move()
+        player.frame +=1 if (player.frame < 50 && player.up==true)
+        if (player.frame == 50 && player.up==true)
+          player.frame = 49
+          player.up = false
+        end
+        player.frame -=1 if (player.frame > 0 && player.up==false) 
+        if (player.frame == 0 && player.up==false)
+          player.frame = 1
+          player.up = true
+        end
         player.bullet.update if !(player.bullet==nil)
       end
       $previous_time = Time.now()
@@ -93,9 +115,11 @@ class Map
     @players.each{|p| sizes << [p.width,p.height]}
     rotates = Array.new
     @players.each{|p| rotates << p.rotate}
+    frames = Array.new
+    @players.each{|p| frames << p.frame}
     bullets = Array.new
     @players.each{|p| bullets << [p.bullet.x(),p.bullet.y()] if !(p.bullet==nil)} 
-    dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, :bullets => bullets}.to_json
+    dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, :bullets => bullets, :frames => frames}.to_json
   end
 end
 
@@ -143,4 +167,3 @@ EventMachine.run do
   
   App.run!(:bind => "127.0.0.1", :port => 8081)
 end
-
