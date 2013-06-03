@@ -22,7 +22,7 @@ module Tilt
 end
 
 class Player
-  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up
+  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up, :shooted
   @@instances = 0
   def initialize(socket,name,x,y)
     @@instances += 1
@@ -36,6 +36,14 @@ class Player
     @height = 100
     @frame = 0
     @up = true
+    @speed_up = 0
+    @speed_lp = 0
+    @grawity = 0.1
+    @shooted = 0
+  end
+  def reset()
+    @x = 50*Random.rand(50)
+    @y = 50*Random.rand(50)
     @speed_up = 0
     @speed_lp = 0
     @grawity = 0.1
@@ -53,9 +61,11 @@ class Player
     @speed_lp = 0 if direction == 'b' && @speed_up < 2
   end
   def grow(bullet)
+    $map.players.each {|p| p.shooted += 1 if p.bullet == bullet}
     $map.players.each {|p| p.bullet = nil if p.bullet == bullet}
-    @width += 10 if @width < 120
-    @height += 10 if @height < 120
+    @width += 10 if @width < 150
+    @height += 10 if @height < 150
+    self.reset()
   end
   def move()
     @grawity = @grawity +  0.025 if @grawity < 2
@@ -126,9 +136,12 @@ class Map
     @players.each{|p| rotates << p.rotate}
     frames = Array.new
     @players.each{|p| frames << p.frame}
+    shooted = Array.new
+    @players.each{|p| shooted << p.shooted}
     bullets = Array.new
     @players.each{|p| bullets << [p.bullet.x(),p.bullet.y()] if !(p.bullet==nil)} 
-    dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, :bullets => bullets, :frames => frames}.to_json
+    dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, 
+      :bullets => bullets, :frames => frames, :shooted => shooted}.to_json
   end
 end
 
@@ -154,7 +167,7 @@ EventMachine.run do
   EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |socket|
     socket.onopen do
       puts "dołączył nowy gracz" 
-      $map.players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $map.players.size < 10
+      $map.players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $map.players.size < 25
     end
     socket.onmessage do |mess|
       $map.players.each {|p| p.socket.send "i:#{p.id}" if p.socket == socket && mess == 'i'}
@@ -163,6 +176,7 @@ EventMachine.run do
       $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'r'}
       $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 't'}
       $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'b'}
+      $map.players.each {|p| p.reset() if p.socket == socket && mess == 'q'}
       $map.players.each {|p| p.bullet = Bullet.new(p,[p.x,p.y], mess[1..mess.size].split(",").map(&:to_i)) if p.socket == socket && mess[0] == 'p'}
       $map.players.each {|p| $map.players.each {|s| s.socket.send "#{p.name}: #{mess[1..mess.size]}"} if p.socket == socket && mess[0] == 'm'}
       $map.players.each {|p| p.name = mess[1..mess.size] if p.socket == socket && mess[0] == 'n'}

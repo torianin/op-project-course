@@ -9,11 +9,11 @@ $(document).ready ->
     window.ws.send "n#{str}"
     window.map = new map
     cq().framework(
-      onResize: (width, height) ->
+      onresize: (width, height) ->
         @canvas.width = width
         @canvas.height = height
 
-      onStep: (delta) ->
+      onstep: (delta, time) ->
         for i in [0...window.data.id.length]
           if window.data.id[i] is window.char.id
             window.char.numer = i
@@ -26,8 +26,7 @@ $(document).ready ->
             if window.data.coordinates[i][1] > @canvas.height*(window.map.move_y_global+1)
               window.map.move_y_global += 1
 
-
-      onRender: ->
+      onrender: (delta, time) ->
         window.map.move_x = (@canvas.width/2) - window.data.coordinates[window.char.numer][0] - window.data.sizes[window.char.numer][0]
         window.map.move_y = (@canvas.height/2) - window.data.coordinates[window.char.numer][1] - window.data.sizes[window.char.numer][1]
         @save()
@@ -52,17 +51,33 @@ $(document).ready ->
               .drawImage(window.map.playerimgs_rotate[window.data.frames[i]], window.data.coordinates[i][0] + window.map.move_x, window.data.coordinates[i][1] + window.map.move_y,window.data.sizes[i][0],window.data.sizes[i][1])
           @save()
             .fillStyle("#000000")
+            .font("10pt Arial")
             .wrappedText window.data.name[i], window.data.coordinates[i][0]+(window.data.sizes[i][0]/4) + window.map.move_x, window.data.coordinates[i][1]+window.data.sizes[i][0]+10 + window.map.move_y, 20
+          @save()
+            .fillStyle("#000000")
+            .font("10pt Arial")
+            .wrappedText("Trafionych: #{window.data.shooted[window.char.numer]}", 20, 30, 200)
+
         for i in [0...window.data.bullets.length]
           @save()
             .drawImage(window.map.bulletimg, window.data.bullets[i][0] + window.map.move_x, window.data.bullets[i][1] + window.map.move_y)
+        
+        if window.map.showother is 1
+          for i in [0...window.data.id.length]
+            if i is window.char.numer
+              @save() 
+                .fillStyle("#ff0000")
+                .fillRect(((window.data.coordinates[i][0] + window.map.move_x)/10)+@canvas.width/2, (window.data.coordinates[i][1] + window.map.move_y)/10+@canvas.height/2, 5, 5)
+            else
+              @save() 
+                .fillStyle("#FFD700")
+                .fillRect(((window.data.coordinates[i][0] + window.map.move_x)/10)+@canvas.width/2, (window.data.coordinates[i][1] + window.map.move_y)/10+@canvas.height/2, 5, 5)
 
-
-      onMouseDown: (x, y) ->
+      onmousedown: (x, y) ->
         d = new Date()
         window.p = d.getTime()
 
-      onMouseUp: (x, y) ->
+      onmouseup: (x, y) ->
         d = new Date()
         window.n = d.getTime()
         time = window.n - window.p
@@ -72,9 +87,10 @@ $(document).ready ->
         if time > 200         
           window.ws.send "p#{x- window.map.move_x},#{y - window.map.move_y}"
 
-      onMouseMove: (x, y) ->
+      onmousemove: (x, y) ->
 
-      onKeyDown: (key) ->
+      onkeydown: (key) ->
+        window.ws.send "q" if key is ("r") # Reset
         window.ws.send "b" if key is ("s") # Down
         window.ws.send "t" if key is ("w") # Up
         if key is ("d") # Right  
@@ -85,17 +101,13 @@ $(document).ready ->
           str = prompt("Napisz wiadomość","Robert")
           window.ws.send "m#{str}"
 
-      onKeyUp: (key) ->
+      ongamepaddown: (button, gamepad) ->
 
-      onSwipe: (direction) ->
-        window.ws.send "b" if direction is "down" # Down
-        window.ws.send "t" if direction is "up" # Up
-        if direction is "right" # Right  
-          window.ws.send "r" 
-        if direction is "left" # Right  
-          window.ws.send "l" 
+      ongamepadup: (button, gamepad) ->
 
-      onDropImage: (image) ->
+      ongamepadmove: (xAxis, yAxis, gamepad) ->
+
+      ondropimage: (image) ->
 
       ).appendTo "body"
 
@@ -136,9 +148,9 @@ class map
     @bullet_url = "./img/serceCzerwone.png"
     @bulletimg = new Image()
     @bulletimg.src = @bullet_url
+    @showother = 1
 
 class angel
   constructor: (id)  ->
     @id = parseInt( id, 10 )
     @numer = 0
-
