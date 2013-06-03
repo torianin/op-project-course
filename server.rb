@@ -9,10 +9,19 @@ require 'sinatra/base'
 require 'thin'
 
 require 'coffee-script'
-require 'json'
+
+module Tilt
+  class CoffeeScriptTemplate
+    def prepare
+      @data.force_encoding Encoding.default_external
+      if !options.key?(:bare) and !options.key?(:no_wrap)
+        options[:bare] = self.class.default_bare
+      end
+    end
+  end
+end
 
 class Player
-
   attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up
   @@instances = 0
   def initialize(socket,name,x,y)
@@ -118,6 +127,42 @@ class Map
     frames = Array.new
     @players.each{|p| frames << p.frame}
     bullets = Array.new
+    #K
+    bullets << [130,70] << [130,140] << [130,210]  << [130,280]
+    bullets << [170,175] 
+    bullets << [210,140] << [210,210]
+    bullets << [260,70]  << [260,280]
+    #O
+    bullets << [400,70] << [350,140] << [350,210]  << [400,280]
+    bullets << [450,70] << [500,140] << [500,210]  << [450,280]
+    #C
+    bullets << [650,70] << [600,140] << [600,210]  << [650,280]
+    bullets << [700,70] << [700,280]
+    #H
+    bullets << [800,70] << [800,140] << [800,210]  << [800,280]
+    bullets << [850,175] << [900,175]
+    bullets << [950,70] << [950,140] << [950,210]  << [950,280]
+    #A
+    bullets << [1100,70] << [1075,140] << [1050,210]  << [1050,280]
+    bullets << [1100,175] << [1150,175]
+    bullets << [1150,70] << [1175,140] << [1200,210]  << [1200,280]
+    #M
+    bullets << [1300,70] << [1300,140] << [1300,210]  << [1300,280]
+    bullets << [1350,140]
+    bullets << [1400,210] 
+    bullets << [1450,140]
+    bullets << [1500,70] << [1500,140] << [1500,210]  << [1500,280]
+    #C
+    bullets << [1850,70] << [1800,140] << [1800,210]  << [1850,280]
+    bullets << [1900,70] << [1900,280]
+    #I
+    bullets << [2000,70] << [2000,140] << [2000,210]  << [2000,280]
+    #E
+    bullets << [2100,70] << [2100,140] << [2100,210]  << [2100,280]
+    bullets << [2150,175] << [2200,175]
+    bullets << [2150,70] << [2200,70]
+    bullets << [2150,280] << [2200,280]
+    bullets << [2200,340]
     @players.each{|p| bullets << [p.bullet.x(),p.bullet.y()] if !(p.bullet==nil)} 
     dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, :bullets => bullets, :frames => frames}.to_json
   end
@@ -144,11 +189,10 @@ EventMachine.run do
 
   EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |socket|
     socket.onopen do
-      puts "dolaczyl nowy gracz" 
+      puts "dołączył nowy gracz" 
       $map.players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $map.players.size < 10
     end
     socket.onmessage do |mess|
-      specials = ['l','r','t','b','m','p','i','j']
       $map.players.each {|p| p.socket.send "i:#{p.id}" if p.socket == socket && mess == 'i'}
       $map.players.each {|p| $map.players.each {|s| s.socket.send "j:#{$map.update()}"} if mess[0] == 'j'}
       $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'l'}
@@ -157,7 +201,7 @@ EventMachine.run do
       $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'b'}
       $map.players.each {|p| p.bullet = Bullet.new(p,[p.x,p.y], mess[1..mess.size].split(",").map(&:to_i)) if p.socket == socket && mess[0] == 'p'}
       $map.players.each {|p| $map.players.each {|s| s.socket.send "#{p.name}: #{mess[1..mess.size]}"} if p.socket == socket && mess[0] == 'm'}
-      $map.players.each {|p| p.name = mess if p.socket == socket && !specials.include?(mess[0])}
+      $map.players.each {|p| p.name = mess[1..mess.size] if p.socket == socket && mess[0] == 'n'}
     end
     socket.onclose do
       puts "gracz odszedl"

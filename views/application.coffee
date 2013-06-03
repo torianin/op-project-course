@@ -1,12 +1,12 @@
 $(document).ready ->
   window.ws = new WebSocket("ws://torianinmobile.pl:8080")
   window.ws.onopen = ->
-    alertify.success "Connected to server"
-    str = prompt("Wpisz swoj nick: (max 30 znakow)", "Robert")
-    str = prompt("Wpisz swoj nick: (max 30 znakow)", "Robert")  while str.length > 30
+    alertify.success "Podłączono do serwera"
+    str = prompt("Wpisz swój nick: (max 30 znaków, min 2 znaki)", "")
+    str = prompt("Wpisz swój nick: (max 30 znaków, min 2 znaki)", "")  until (str.length < 30 && str.length > 2)
     window.ws.send "i"
     window.ws.send "j"
-    window.ws.send str
+    window.ws.send "n#{str}"
     window.map = new map
     cq().framework(
       onResize: (width, height) ->
@@ -14,23 +14,22 @@ $(document).ready ->
         @canvas.height = height
 
       onStep: (delta) ->
-        window.data.width = @canvas.width
-        window.data.height = @canvas.height
         for i in [0...window.data.id.length]
           if window.data.id[i] is window.char.id
+            window.char.numer = i
             if window.data.coordinates[i][0] < @canvas.width*window.map.move_x_global
               window.map.move_x_global -= 1
             if window.data.coordinates[i][0] > @canvas.width*(window.map.move_x_global+1)
               window.map.move_x_global += 1
-            if window.data.coordinates[i][1] < @canvas.width*window.map.move_y_global
+            if window.data.coordinates[i][1] < @canvas.height*window.map.move_y_global
               window.map.move_y_global -= 1
             if window.data.coordinates[i][1] > @canvas.height*(window.map.move_y_global+1)
               window.map.move_y_global += 1
 
-            window.map.move_x = (window.data.width/2) - window.data.coordinates[i][0] - window.data.sizes[i][0]
-            window.map.move_y = (window.data.height/2) - window.data.coordinates[i][1] - window.data.sizes[i][1]
 
       onRender: ->
+        window.map.move_x = (@canvas.width/2) - window.data.coordinates[window.char.numer][0] - window.data.sizes[window.char.numer][0]
+        window.map.move_y = (@canvas.height/2) - window.data.coordinates[window.char.numer][1] - window.data.sizes[window.char.numer][1]
         @save()
           .clear("#0e93e8")
           .drawImage(window.map.background, 2000*(window.map.move_x_global-1) + window.map.move_x, 1600*(window.map.move_y_global-1)  + window.map.move_y)
@@ -68,7 +67,7 @@ $(document).ready ->
         window.n = d.getTime()
         time = window.n - window.p
         if time > 2000
-          str = prompt("Napisz wiadomosc","Robert")
+          str = prompt("Napisz wiadomość","Robert")
           window.ws.send "m#{str}"
         if time > 200         
           window.ws.send "p#{x- window.map.move_x},#{y - window.map.move_y}"
@@ -83,7 +82,7 @@ $(document).ready ->
         if key is ("a") # Left  
           window.ws.send "l" 
         if key is "t" # Right  
-          str = prompt("Napisz wiadomosc","Robert")
+          str = prompt("Napisz wiadomość","Robert")
           window.ws.send "m#{str}"
 
       onKeyUp: (key) ->
@@ -113,7 +112,7 @@ $(document).ready ->
       alertify.log(evt.data)
 
   window.ws.onclose = ->
-    alertify.error("Can't connect to server")
+    alertify.error("Nie można podłączyć się do serwera")
 
 class map
   constructor: (data)  ->
@@ -141,6 +140,5 @@ class map
 class angel
   constructor: (id)  ->
     @id = parseInt( id, 10 )
-    @frame = 0
-    @up = true
+    @numer = 0
 
