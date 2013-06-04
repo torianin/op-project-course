@@ -22,7 +22,7 @@ module Tilt
 end
 
 class Player
-  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up, :shooted
+  attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up, :shooted, :bonus
   @@instances = 0
   def initialize(socket,name,x,y)
     @@instances += 1
@@ -40,6 +40,8 @@ class Player
     @speed_lp = 0
     @grawity = 0.1
     @shooted = 0
+    @bonus = nil
+    @max_speed = 20
   end
   def reset()
     @x = 50*Random.rand(50)
@@ -50,11 +52,13 @@ class Player
   end
   def update(direction)
     if direction == 'l'
-      @speed_lp -= 1 if @speed_lp > -10
+      @speed_lp -= 1 if @speed_lp > -@max_speed
+      @speed_lp = -1 if @bonus == 0 
       @rotate = 1
     end
     if direction == 'r'
-      @speed_lp += 1.5 if @speed_lp < 10
+      @speed_lp += 1.5 if @speed_lp < @max_speed
+      @speed_lp = 1 if @bonus == 0 
       @rotate = 0
     end
     @grawity -= 1 if direction == 't' && @grawity > - 2
@@ -71,6 +75,12 @@ class Player
     @grawity = @grawity +  0.025 if @grawity < 2
     @y += @grawity
     @x = @x + @speed_lp
+  end
+  def setbonus(id,bonus)
+    @bonus = id
+    @socket.send "Ciężka miłość"
+    @speed_lp = 0
+    $map.bonuses.each {|b| b.move() if b == bonus}
   end
 end
 
@@ -101,10 +111,29 @@ class Bullet
   end
 end
 
+class Bonus
+  attr_accessor :x,:y,:type
+  def initialize(x,y,type)
+    @x = x
+    @y = y
+    @size_x = 50
+    @size_y = 50
+    @type = type
+  end
+  def move()
+    @x = 50*Random.rand(50)
+    @y = 50*Random.rand(50)
+  end
+  def update()
+    $map.players.each {|p| p.setbonus(@type,self) if ((@y > p.y ) && (@y < p.y + p.height) && (@x > p.x ) && (@x < p.x + p.width)) && p!=@player && type == 0 }
+  end
+end
+
 class Map
-  attr_accessor :players
+  attr_accessor :players, :bonuses
   def initialize()
     @players = []
+    @bonuses = []
   end
   def update
     if Time.now().to_ms - $previous_time.to_ms > 16
@@ -121,7 +150,10 @@ class Map
           player.up = true
         end
         player.bullet.update if !(player.bullet==nil)
+        player.bonus = nil if Random.rand(500) < 10 && player.bonus != nil
       end
+      @bonuses.each {|b| b.update()}
+      @bonuses << Bonus.new(50*Random.rand(50),50*Random.rand(50),0) if @bonuses.size < 10 
       $previous_time = Time.now()
     end
     ids = Array.new
@@ -140,8 +172,10 @@ class Map
     @players.each{|p| shooted << p.shooted}
     bullets = Array.new
     @players.each{|p| bullets << [p.bullet.x(),p.bullet.y()] if !(p.bullet==nil)} 
+    bonuses = Array.new
+    @bonuses.each{|b| bonuses << [b.x,b.y,b.type] } 
     dane = {:id => ids, :name => names, :coordinates => coordinates, :rotates => rotates, :sizes => sizes, 
-      :bullets => bullets, :frames => frames, :shooted => shooted}.to_json
+      :bullets => bullets, :frames => frames, :shooted => shooted, :bonuses =>bonuses}.to_json
   end
 end
 

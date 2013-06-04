@@ -51,12 +51,12 @@ $(document).ready ->
               .drawImage(window.map.playerimgs_rotate[window.data.frames[i]], window.data.coordinates[i][0] + window.map.move_x, window.data.coordinates[i][1] + window.map.move_y,window.data.sizes[i][0],window.data.sizes[i][1])
           @save()
             .fillStyle("#000000")
-            .font("10pt Arial")
+            .font("8pt Arial")
             .wrappedText window.data.name[i], window.data.coordinates[i][0]+(window.data.sizes[i][0]/4) + window.map.move_x, window.data.coordinates[i][1]+window.data.sizes[i][0]+10 + window.map.move_y, 20
           @save()
             .fillStyle("#000000")
-            .font("10pt Arial")
-            .wrappedText("Trafionych: #{window.data.shooted[window.char.numer]}", 20, 30, 200)
+            .font("11pt Arial")
+            .wrappedText("#{window.data.name[i]}: #{window.data.shooted[i]}", 20, 20*(i+1)+10, 200)
 
         for i in [0...window.data.bullets.length]
           @save()
@@ -72,7 +72,13 @@ $(document).ready ->
               @save() 
                 .fillStyle("#FFD700")
                 .fillRect(((window.data.coordinates[i][0] + window.map.move_x)/10)+@canvas.width/2, (window.data.coordinates[i][1] + window.map.move_y)/10+@canvas.height/2, 5, 5)
-
+        
+        for i in [0...window.data.bonuses.length]
+          @save()
+            .drawImage(window.map.bonusimg, window.data.bonuses[i][0] + window.map.move_x, window.data.bonuses[i][1] + window.map.move_y)
+            .fillStyle("#8E2323")
+            .fillRect(((window.data.bonuses[i][0] + window.map.move_x)/10)+@canvas.width/2, (window.data.bonuses[i][1] + window.map.move_y)/10+@canvas.height/2, 2, 2)
+        
       onmousedown: (x, y) ->
         d = new Date()
         window.p = d.getTime()
@@ -83,9 +89,8 @@ $(document).ready ->
         time = window.n - window.p
         if time > 2000
           str = prompt("Napisz wiadomość","Robert")
-          window.ws.send "m#{str}"
-        if time > 200         
-          window.ws.send "p#{x- window.map.move_x},#{y - window.map.move_y}"
+          window.ws.send "m#{str}"     
+        window.ws.send "p#{x- window.map.move_x},#{y - window.map.move_y}"
 
       onmousemove: (x, y) ->
 
@@ -119,6 +124,9 @@ $(document).ready ->
       window.char = new angel evt.data[2..evt.data.size]
       alertify.log(window.char.id)
 
+    else if  evt.data[0..1] is "b:"
+      alertify.success(evt.data[2..evt.data.size])
+
     else
       console.log(evt.data[0..1])
       alertify.log(evt.data)
@@ -148,6 +156,9 @@ class map
     @bullet_url = "./img/serceCzerwone.png"
     @bulletimg = new Image()
     @bulletimg.src = @bullet_url
+    @bonus_url = "./img/bonus0.png"
+    @bonusimg = new Image()
+    @bonusimg.src = @bonus_url
     @showother = 1
 
 class angel
