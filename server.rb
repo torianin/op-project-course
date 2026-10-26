@@ -4,22 +4,13 @@
 require 'rubygems'
 require 'bundler/setup'
 
-require 'em-websocket'
+require 'json'
+require 'uri'
+require 'faye/websocket'
 require 'sinatra/base'
 require 'thin'
 
-require 'coffee-script'
-
-module Tilt
-  class CoffeeScriptTemplate
-    def prepare
-      @data.force_encoding Encoding.default_external
-      if !options.key?(:bare) and !options.key?(:no_wrap)
-        options[:bare] = self.class.default_bare
-      end
-    end
-  end
-end
+Faye::WebSocket.load_adapter('thin')
 
 class Player
   attr_accessor :id,:name,:socket,:x,:y,:rotate,:bullet,:width,:height, :frame, :up, :shooted, :bonus
@@ -100,6 +91,11 @@ class Bullet
   end
   def unit
     distance = self.distance()
+    if distance.zero?
+      @aunit = 1.0
+      @bunit = 0.0
+      return [@aunit, @bunit]
+    end
     @aunit = @a/distance
     @bunit = @b/distance
     return [@aunit,@bunit]
@@ -185,41 +181,82 @@ class Time
   end
 end
 
-EventMachine.run do
-  $previous_time = Time.now()
-  $map = Map.new()
+$previous_time = Time.now()
+$map = Map.new()
 
-  class App < Sinatra::Base
-      get '/' do
-          erb :index
-      end
-      get "/application.js" do
-          coffee :application
-      end
+class App < Sinatra::Base
+  set :environment, ENV.fetch('RACK_ENV', 'production').to_sym
+  set :root, File.expand_path(__dir__)
+
+  get '/' do
+    erb :index
   end
 
-  EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |socket|
-    socket.onopen do
-      puts "dołączył nowy gracz" 
-      $map.players << Player.new(socket,"",50*Random.rand(5),50*Random.rand(5)) if $map.players.size < 25
-    end
-    socket.onmessage do |mess|
-      $map.players.each {|p| p.socket.send "i:#{p.id}" if p.socket == socket && mess == 'i'}
-      $map.players.each {|p| $map.players.each {|s| s.socket.send "j:#{$map.update()}"} if mess[0] == 'j'}
-      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'l'}
-      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'r'}
-      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 't'}
-      $map.players.each {|p| p.update(mess) if p.socket == socket && mess == 'b'}
-      $map.players.each {|p| p.reset() if p.socket == socket && mess == 'q'}
-      $map.players.each {|p| p.bullet = Bullet.new(p,[p.x,p.y], mess[1..mess.size].split(",").map(&:to_i)) if p.socket == socket && mess[0] == 'p'}
-      $map.players.each {|p| $map.players.each {|s| s.socket.send "#{p.name}: #{mess[1..mess.size]}"} if p.socket == socket && mess[0] == 'm'}
-      $map.players.each {|p| p.name = mess[1..mess.size] if p.socket == socket && mess[0] == 'n'}
-    end
-    socket.onclose do
-      puts "gracz odszedl"
-      $map.players.each {|p| $map.players.delete(p) if p.socket == socket}
-    end
+  get '/healthz' do
+    content_type :json
+    {status: 'ok', players: $map.players.size}.to_json
   end
-  
-  App.run!(:bind => "127.0.0.1", :port => 8081)
+end
+
+class WebSocketApp
+  def call(env)
+    return App.call(env) unless env['PATH_INFO'] == '/ws'
+    unless Faye::WebSocket.websocket?(env)
+      return [426, {'content-type' => 'text/plain', 'upgrade' => 'websocket'}, ['WebSocket required']]
+    end
+    if env['HTTP_ORIGIN']
+      begin
+        origin = URI.parse(env['HTTP_ORIGIN'])
+        expected = URI.parse("#{origin.scheme}://#{env['HTTP_HOST']}")
+        unless %w[http https].include?(origin.scheme) && origin.host == expected.host && origin.port == expected.port
+          return [403, {'content-type' => 'text/plain'}, ['Origin rejected']]
+        end
+      rescue URI::InvalidURIError
+        return [403, {'content-type' => 'text/plain'}, ['Origin rejected']]
+      end
+    end
+
+    socket = Faye::WebSocket.new(env, nil, ping: 25, max_length: 4096)
+    player = nil
+    socket.on :open do |_event|
+      if $map.players.size >= 25
+        socket.close(1008, 'Room full')
+      else
+        player = Player.new(socket, '', 50 * Random.rand(5), 50 * Random.rand(5))
+        $map.players << player
+      end
+    end
+    socket.on :message do |event|
+      next unless player && event.data.is_a?(String)
+      mess = event.data
+      case mess
+      when 'i'
+        socket.send "i:#{player.id}"
+      when 'j'
+        # Each client requests its own snapshot. Avoid the old N-squared broadcast.
+        socket.send "j:#{$map.update()}"
+      when 'l', 'r', 't', 'b'
+        player.update(mess)
+      when 'q'
+        player.reset()
+      when /\Ap/
+        values = mess[1..].split(',', -1)
+        next unless values.size == 2
+        coordinates = values.map { |value| Float(value, exception: false) }
+        next unless coordinates.all? { |value| value && value.finite? && value.abs <= 10_000_000 }
+        player.bullet = Bullet.new(player, [player.x, player.y], coordinates)
+      when /\An(.{2,30})\z/m
+        player.name = Regexp.last_match(1).strip
+      when /\Am(.{1,500})\z/m
+        message = Rack::Utils.escape_html("#{player.name}: #{Regexp.last_match(1)}")
+        $map.players.each { |other| other.socket.send(message) }
+      end
+    end
+    socket.on(:close) { |_event| $map.players.delete(player) }
+    socket.rack_response
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  Thin::Server.new(ENV.fetch('BIND', '0.0.0.0'), Integer(ENV.fetch('PORT', '8080')), WebSocketApp.new).start
 end

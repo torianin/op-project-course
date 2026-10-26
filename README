@@ -1,1 +1,50 @@
-Simple game using Sinatra and EventMachine
+Fat Angel Multiplayer
+====================
+
+Gra multiplayer w Ruby 3.3, Sinatra i EventMachine. HTTP i WebSocket /ws
+korzystają z jednego portu. Endpoint /healthz zwraca stan serwera.
+
+Lokalnie
+--------
+
+Wymagania: Ruby 3.3, kompilator C/C++, make i nagłówki OpenSSL.
+
+    gem install bundler -v 2.5.22
+    bundle install
+    bundle exec ruby server.rb
+
+Otwórz http://localhost:8080 w przeglądarce. Zmienne PORT (domyślnie 8080)
+i BIND (domyślnie 0.0.0.0) zmieniają adres nasłuchiwania.
+Domyślnym środowiskiem jest RACK_ENV=production.
+
+Gotowy public/application.js jest zapisany w repozytorium. Po zmianie
+views/application.coffee przebuduj go przez node scripts/compile-client.js.
+Node.js jest potrzebny wyłącznie do tej przebudowy.
+
+Docker
+------
+
+    docker build --pull -t fat-angel .
+    docker run --rm -p 8080:8080 fat-angel
+
+Obraz używa aktualnego wydania poprawkowego Ruby 3.3 na Debianie Bookworm.
+Gemy natywne są kompilowane w osobnym etapie; aplikacja działa jako użytkownik
+bez uprawnień roota. Kontener nie wymaga Node.js ani dodatkowego proxy.
+
+Render
+------
+
+Po wypchnięciu brancha codex/ai-fun utwórz w Render nowy Blueprint z tego
+repozytorium i tego brancha. Plik render.yaml definiuje pojedynczą usługę
+Docker w regionie Frankfurt, plan free i kontrolę zdrowia /healthz.
+Render przekazuje PORT i zapewnia HTTPS oraz WebSocket wss:// pod /ws.
+Automatyczne wdrożenia są wyłączone; kolejne wdrożenia uruchamiaj ręcznie.
+Szczegóły pól: https://render.com/docs/blueprint-spec
+
+Uruchamiaj jedną instancję i jeden proces serwera: wspólny pokój mieści do
+25 graczy, a stan gry jest przechowywany w pamięci. Restart, ponowne wdrożenie
+lub uśpienie usuwa stan pokoju i rozłącza graczy. Po rozłączeniu odśwież stronę.
+
+Plan free usypia usługę po 15 minutach bez przychodzących żądań HTTP ani
+wiadomości WebSocket. Następne połączenie uruchamia ją ponownie; zwykle trwa
+to około minuty. Limity planu: https://render.com/docs/free

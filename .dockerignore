@@ -1,0 +1,11 @@
+.git
+.bundle
+.runtime
+vendor
+node_modules
+log
+tmp
+.env
+.env.*
+.DS_Store
+*.log

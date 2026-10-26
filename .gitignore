@@ -1,0 +1,8 @@
+.DS_Store
+.runtime/
+vendor/bundle/
+log/*.log
+tmp/pids/*.pid
+.env
+.env.*
+!.env.example

@@ -1,12 +1,37 @@
 $(document).ready ->
-  window.ws = new WebSocket("ws://torianinmobile.pl:8080")
+  protocol = if window.location.protocol is "https:" then "wss:" else "ws:"
+  window.ws = new WebSocket("#{protocol}//#{window.location.host}/ws")
+  lastStateRequest = 0
+
+  send = (message) ->
+    window.ws.send message if window.ws.readyState is WebSocket.OPEN
+
+  requestState = ->
+    return unless window.ws.readyState is WebSocket.OPEN
+    now = Date.now()
+    return if now - lastStateRequest < 33
+    lastStateRequest = now
+    send "j"
+
+  playerReady = ->
+    return false unless window.map? and window.char? and window.data?.id?
+    index = window.data.id.indexOf(window.char.id)
+    return false if index < 0
+    window.char.numer = index
+    window.data.coordinates?[index]? and window.data.sizes?[index]?
+
   window.ws.onopen = ->
     alertify.success "Podłączono do serwera"
-    str = prompt("Wpisz swój nick: (max 30 znaków, min 2 znaki)", "")
-    str = prompt("Wpisz swój nick: (max 30 znaków, min 2 znaki)", "")  until (str.length < 30 && str.length > 2)
-    window.ws.send "i"
-    window.ws.send "j"
-    window.ws.send "n#{str}"
+    loop
+      str = prompt("Wpisz swój nick: (max 30 znaków, min 2 znaki)", "")
+      unless str?
+        window.ws.close()
+        return
+      str = $.trim(str)
+      break if 2 <= str.length <= 30
+    send "i"
+    send "n#{str}"
+    requestState()
     window.map = new map
     cq().framework(
       onresize: (width, height) ->
@@ -14,6 +39,7 @@ $(document).ready ->
         @canvas.height = height
 
       onstep: (delta, time) ->
+        return unless playerReady()
         for i in [0...window.data.id.length]
           if window.data.id[i] is window.char.id
             window.char.numer = i
@@ -27,6 +53,8 @@ $(document).ready ->
               window.map.move_y_global += 1
 
       onrender: (delta, time) ->
+        requestState()
+        return unless playerReady()
         window.map.move_x = (@canvas.width/2) - window.data.coordinates[window.char.numer][0] - window.data.sizes[window.char.numer][0]
         window.map.move_y = (@canvas.height/2) - window.data.coordinates[window.char.numer][1] - window.data.sizes[window.char.numer][1]
         @save()
@@ -41,7 +69,6 @@ $(document).ready ->
           .drawImage(window.map.background, 2000*(window.map.move_x_global+1) + window.map.move_x, 1600*(window.map.move_y_global) + window.map.move_y)
           .drawImage(window.map.background, 2000*(window.map.move_x_global+1) + window.map.move_x, 1600*(window.map.move_y_global+1) + window.map.move_y)
 
-        window.ws.send "j"
         for i in [0...window.data.id.length]
           if window.data.rotates[i] is 0 
             @save() 
@@ -84,27 +111,29 @@ $(document).ready ->
         window.p = d.getTime()
 
       onmouseup: (x, y) ->
+        return unless playerReady()
         d = new Date()
         window.n = d.getTime()
         time = window.n - window.p
         if time > 2000
           str = prompt("Napisz wiadomość","Robert")
-          window.ws.send "m#{str}"     
-        window.ws.send "p#{x- window.map.move_x},#{y - window.map.move_y}"
+          send "m#{str}" if str?
+        send "p#{x- window.map.move_x},#{y - window.map.move_y}"
 
       onmousemove: (x, y) ->
 
       onkeydown: (key) ->
-        window.ws.send "q" if key is ("r") # Reset
-        window.ws.send "b" if key is ("s") # Down
-        window.ws.send "t" if key is ("w") # Up
+        return unless playerReady()
+        send "q" if key is ("r") # Reset
+        send "b" if key is ("s") # Down
+        send "t" if key is ("w") # Up
         if key is ("d") # Right  
-          window.ws.send "r" 
+          send "r"
         if key is ("a") # Left  
-          window.ws.send "l" 
+          send "l"
         if key is "t" # Right  
           str = prompt("Napisz wiadomość","Robert")
-          window.ws.send "m#{str}"
+          send "m#{str}" if str?
 
       ongamepaddown: (button, gamepad) ->
 
@@ -118,14 +147,14 @@ $(document).ready ->
 
   window.ws.onmessage = (evt) ->
     if evt.data[0..1] is "j:"
-      window.data = jQuery.parseJSON(evt.data[2..evt.data.size])
+      window.data = jQuery.parseJSON(evt.data[2..])
 
     else if  evt.data[0..1] is "i:"
-      window.char = new angel evt.data[2..evt.data.size]
+      window.char = new angel evt.data[2..]
       alertify.log(window.char.id)
 
     else if  evt.data[0..1] is "b:"
-      alertify.success(evt.data[2..evt.data.size])
+      alertify.success(evt.data[2..])
 
     else
       console.log(evt.data[0..1])

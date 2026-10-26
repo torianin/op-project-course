@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: fat-angel
+    runtime: docker
+    repo: https://github.com/torianin/op-project-course
+    branch: codex/ai-fun
+    region: frankfurt
+    plan: free
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"

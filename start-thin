@@ -1,2 +1,5 @@
-#!/bin/bash
-RACK_ENV=production ruby server.rb &
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")"
+export RACK_ENV="${RACK_ENV:-production}"
+exec bundle exec ruby server.rb

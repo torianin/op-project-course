@@ -1,7 +1,5 @@
-source 'http://rubygems.org'
+source 'https://rubygems.org'
 
-gem 'em-websocket'
-gem 'sinatra'
-gem 'thin'
-gem 'execjs'
-gem 'coffee-script'
+gem 'faye-websocket', '~> 0.12'
+gem 'sinatra', '~> 4.2'
+gem 'thin', '~> 2.0'

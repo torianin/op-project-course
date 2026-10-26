@@ -1,2 +1,2 @@
-require './server'
-run App.new
+require_relative 'server'
+run WebSocketApp.new
