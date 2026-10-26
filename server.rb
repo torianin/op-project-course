@@ -220,7 +220,7 @@ class WebSocketApp
     player = nil
     socket.on :open do |_event|
       if $map.players.size >= 25
-        socket.close(1008, 'Room full')
+        socket.close(4008, 'Room full')
       else
         player = Player.new(socket, '', 50 * Random.rand(5), 50 * Random.rand(5))
         $map.players << player

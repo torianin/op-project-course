@@ -104,11 +104,13 @@ try {
   assert.deepEqual(await Promise.all(echoes), [message, message]);
   await second.close();
   let remaining;
-  for (let attempt = 0; attempt < 10; attempt++) {
+  // A hosted proxy may finish the client close before releasing its upstream socket.
+  const disconnectDeadline = Date.now() + 15_000;
+  do {
     remaining = await first.state();
     if (!remaining.id.includes(secondID)) break;
-    await delay(50);
-  }
+    await delay(250);
+  } while (Date.now() < disconnectDeadline);
   assert(!remaining.id.includes(secondID), 'Disconnected player must leave the room');
   console.log(`PASS ${base.origin}: HTTP, assets, two players, names, movement, shots, chat, disconnect`);
 } finally {
