@@ -16,12 +16,14 @@ do zatwierdzonego wydania przez fast-forward.
   powtarzanym wzorem tła i pomijaniem obiektów poza ekranem.
 - Formularz dołączania oraz panel czatu z bezpiecznym wyświetlaniem tekstu,
   walidacją po stronie serwera, potwierdzaniem nicka i limitami spamu.
+- Sterowanie dotykowe na telefonach i tabletach: przyciski ruchu, strzału,
+  resetu i czatu oraz celowanie przez dotknięcie planszy.
 - Limity połączeń, rozmiaru wiadomości, strzałów i resetów; sprawdzanie `Origin`,
   nagłówki bezpieczeństwa oraz rozłączanie bezczynnych lub zbyt wolnych klientów.
 
 ## Jak zacząć
 
-1. Otwórz grę w przeglądarce z klawiaturą i myszą.
+1. Otwórz grę w przeglądarce na komputerze, telefonie lub tablecie.
 2. Wpisz nick mający **2–30 znaków** po usunięciu spacji z początku i końca.
 3. Dołączysz do wspólnego pokoju, który mieści **do 25 graczy**.
 4. Zaproś drugą osobę pod ten sam adres albo otwórz grę w drugim oknie.
@@ -33,8 +35,9 @@ po otwarciu połączenia jest 30 sekund.
 
 ## Zrzuty ekranu
 
-Zrzuty pochodzą z publicznej wersji **0.0.1**, uruchomionej w Safari.
+Pierwsze dwa zrzuty pochodzą z publicznej wersji **0.0.1**, uruchomionej w Safari.
 Pokazują grafikę rozgrywki; w 0.0.2 okna dialogowe zastąpiono formularzem i panelem czatu.
+Zrzut mobilny pokazuje aktualne sterowanie w lokalnej wersji 0.0.2.
 
 ### Rozgrywka
 
@@ -47,6 +50,10 @@ Własna postać, licznik trafień, minimapa i bonus w świecie gry.
 ![Zrzut multiplayera i czatu Fat Angel Multiplayer](docs/screenshots/multiplayer-czat.png)
 
 Dwie niezależne sesje — „Aniolek” i „Amorek” — oraz wiadomość wspólnego czatu.
+
+### Sterowanie na telefonie
+
+![Gra na ekranie telefonu z przyciskami ruchu, resetu, czatu i strzału](docs/screenshots/sterowanie-mobilne.jpg)
 
 ## Co można robić
 
@@ -86,6 +93,22 @@ są oznaczeni na złoto, a bonusy na brązowoczerwono.
 
 Podczas wpisywania tekstu klawisze nie sterują postacią. Klawisz **R** zachowuje
 rozmiar postaci, zdobyte punkty, bonus i istniejący pocisk.
+
+### Telefon i tablet
+
+Przyciski pojawiają się na ekranach dotykowych i w małych oknach. Można grać
+w pionie lub w poziomie, również przytrzymując kilka przycisków jednocześnie.
+
+| Przycisk / gest | Działanie |
+| --- | --- |
+| **Lewo / Prawo / Góra** | Przytrzymaj, aby przyspieszać w danym kierunku |
+| **Stop** | Zatrzymuje ruch poziomy |
+| **Reset** | Przenosi postać w losowe miejsce |
+| **Strzał** | Celuje w najbliższego widocznego przeciwnika; bez niego strzela w kierunku, w którym patrzy postać |
+| **Dotknięcie planszy** | Strzela w wybrane miejsce; można celować drugim palcem podczas ruchu |
+| **Czat** | Otwiera panel wiadomości; przycisk × zamyka go i przywraca sterowanie |
+
+Ruch poziomy ma bezwładność i trwa po puszczeniu strzałki; użyj **Stop**, aby go zatrzymać.
 
 ## Zabezpieczenia czatu i połączeń
 
@@ -150,8 +173,7 @@ aby sprawdzanie `Origin` i połączenia `wss://` działały poprawnie.
 - Symulacja działa w stałych krokach 60 Hz. Przy przeciążeniu serwer wykonuje
   najwyżej 5 kroków nadrabiania w jednym przebiegu, po czym odrzuca nadmiar zaległości.
 - Nie ma automatycznego ponownego łączenia ani przywracania poprzedniej sesji.
-- Nie ma obsługi gamepada ani ekranowych przycisków ruchu
-  ani kompletnego sterowania dotykowego; podstawowy interfejs to klawiatura i mysz.
+- Nie ma obsługi gamepada.
 
 ## Architektura i pliki
 

@@ -1,6 +1,8 @@
 (function() {
+  var __hasProp = {}.hasOwnProperty;
+
   document.addEventListener('DOMContentLoaded', function() {
-    var addChat, assets, backgroundPattern, bonuses, bullets, canvas, chatForm, chatHistory, chatInput, chatPanel, chatStatus, connect, context, currentName, focusChat, gameHelp, i, image, imageCache, imageReady, joinButton, joinError, joinForm, joinScreen, joinStatus, joinWithNickname, joined, lastChatAt, mouseDownAt, nicknameInput, ownID, ownPlayer, pendingNickname, playerIndex, playerName, players, playersByID, positionAt, receiveState, render, resize, send, sentChatAt, showDisconnected, typing, visible, _ref;
+    var activeControls, addChat, assets, backgroundPattern, bindControl, bonuses, bullets, canvas, canvasPointers, chatClose, chatForm, chatHistory, chatInput, chatPanel, chatStatus, chatToggle, closeChat, connect, context, currentName, eventName, fireAtOpponent, fireButton, focusChat, gameHelp, i, image, imageCache, imageReady, joinButton, joinError, joinForm, joinScreen, joinStatus, joinWithNickname, joined, lastChatAt, mobileControls, nicknameInput, ownID, ownPlayer, pendingNickname, playerIndex, playerName, players, playersByID, positionAt, receiveState, render, resize, send, sentChatAt, showDisconnected, stopAllControls, stopControl, typing, visible, _i, _len, _ref, _ref1;
 
     joinScreen = document.getElementById('join-screen');
     joinForm = document.getElementById('join-form');
@@ -15,6 +17,9 @@
     chatStatus = document.getElementById('chat-status');
     playerName = document.getElementById('player-name');
     gameHelp = document.getElementById('game-help');
+    mobileControls = document.getElementById('mobile-controls');
+    chatToggle = document.getElementById('touch-chat');
+    chatClose = document.getElementById('chat-close');
     canvas = document.createElement('canvas');
     canvas.id = 'game-canvas';
     canvas.tabIndex = 0;
@@ -78,7 +83,8 @@
     playersByID = Object.create(null);
     bullets = [];
     bonuses = [];
-    mouseDownAt = null;
+    canvasPointers = Object.create(null);
+    activeControls = Object.create(null);
     sentChatAt = [];
     lastChatAt = 0;
     window.map = {
@@ -99,6 +105,28 @@
 
       element = document.activeElement;
       return (element != null) && (((_ref1 = element.tagName) === 'INPUT' || _ref1 === 'TEXTAREA' || _ref1 === 'SELECT') || element.isContentEditable);
+    };
+    stopControl = function(pointerId) {
+      var control;
+
+      control = activeControls[pointerId];
+      if (control == null) {
+        return;
+      }
+      if (control.timer != null) {
+        window.clearInterval(control.timer);
+      }
+      return delete activeControls[pointerId];
+    };
+    stopAllControls = function() {
+      var pointerId, _results;
+
+      _results = [];
+      for (pointerId in activeControls) {
+        if (!__hasProp.call(activeControls, pointerId)) continue;
+        _results.push(stopControl(pointerId));
+      }
+      return _results;
     };
     addChat = function(name, text) {
       var nearBottom, row, sender;
@@ -129,7 +157,20 @@
       if (!joined) {
         return;
       }
+      stopAllControls();
+      chatPanel.classList.add('chat-open');
+      mobileControls.classList.add('chat-active');
+      chatToggle.setAttribute('aria-expanded', 'true');
       return chatInput.focus();
+    };
+    closeChat = function() {
+      chatPanel.classList.remove('chat-open');
+      mobileControls.classList.remove('chat-active');
+      chatToggle.setAttribute('aria-expanded', 'false');
+      if (document.activeElement === chatInput) {
+        chatInput.blur();
+      }
+      return canvas.focus();
     };
     positionAt = function(player, now) {
       var alpha;
@@ -307,6 +348,7 @@
       return send("n" + nickname);
     };
     showDisconnected = function(message) {
+      stopAllControls();
       joined = false;
       ownID = null;
       ownPlayer = null;
@@ -318,9 +360,13 @@
       window.map.move_x = 0;
       window.map.move_y = 0;
       window.char = null;
-      mouseDownAt = null;
+      canvasPointers = Object.create(null);
       joinScreen.hidden = false;
       chatPanel.hidden = true;
+      chatPanel.classList.remove('chat-open');
+      mobileControls.classList.remove('chat-active');
+      chatToggle.setAttribute('aria-expanded', 'false');
+      mobileControls.hidden = true;
       gameHelp.hidden = true;
       joinStatus.textContent = '';
       joinError.textContent = message;
@@ -377,6 +423,7 @@
               };
               joinScreen.hidden = true;
               chatPanel.hidden = false;
+              mobileControls.hidden = false;
               gameHelp.hidden = false;
               playerName.textContent = currentName;
               joinError.textContent = '';
@@ -541,8 +588,7 @@
       if (typing()) {
         if (key === 'escape' && document.activeElement === chatInput) {
           event.preventDefault();
-          chatInput.blur();
-          canvas.focus();
+          closeChat();
         }
         return;
       }
@@ -566,32 +612,181 @@
         return send(command);
       }
     });
-    canvas.addEventListener('mousedown', function() {
-      if (joined && (ownPlayer != null) && !typing()) {
-        return mouseDownAt = Date.now();
-      }
-    });
-    canvas.addEventListener('mouseup', function(event) {
-      var held, rect, x, y;
+    bindControl = function(button, command, repeat) {
+      var eventName, _i, _len, _ref1;
 
-      if (!(joined && (ownPlayer != null) && (mouseDownAt != null) && !typing())) {
+      button.addEventListener('pointerdown', function(event) {
+        var timer;
+
+        if (!(joined && (ownPlayer != null))) {
+          return;
+        }
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+          return;
+        }
+        if (typing()) {
+          closeChat();
+        }
+        event.preventDefault();
+        if (activeControls[event.pointerId] != null) {
+          return;
+        }
+        send(command);
+        timer = null;
+        if (repeat) {
+          timer = window.setInterval((function() {
+            if (joined && (ownPlayer != null) && !typing()) {
+              return send(command);
+            }
+          }), 70);
+        }
+        activeControls[event.pointerId] = {
+          timer: timer
+        };
+        return typeof button.setPointerCapture === "function" ? button.setPointerCapture(event.pointerId) : void 0;
+      });
+      _ref1 = ['pointerup', 'pointercancel', 'lostpointercapture'];
+      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+        eventName = _ref1[_i];
+        button.addEventListener(eventName, function(event) {
+          return stopControl(event.pointerId);
+        });
+      }
+      return button.addEventListener('click', function(event) {
+        if (event.detail === 0 && joined && (ownPlayer != null) && !typing()) {
+          return send(command);
+        }
+      });
+    };
+    bindControl(document.getElementById('touch-left'), 'l', true);
+    bindControl(document.getElementById('touch-right'), 'r', true);
+    bindControl(document.getElementById('touch-up'), 't', true);
+    bindControl(document.getElementById('touch-stop'), 'b', false);
+    bindControl(document.getElementById('touch-reset'), 'q', false);
+    fireButton = document.getElementById('touch-fire');
+    fireAtOpponent = function() {
+      var closest, direction, distance, dx, dy, player, target, x, y, _i, _len;
+
+      if (!(joined && (ownPlayer != null))) {
         return;
       }
-      held = Date.now() - mouseDownAt;
-      mouseDownAt = null;
+      if (typing()) {
+        closeChat();
+      }
+      target = null;
+      closest = Infinity;
+      for (_i = 0, _len = players.length; _i < _len; _i++) {
+        player = players[_i];
+        if (!(player.id !== ownID)) {
+          continue;
+        }
+        if (!visible(player.x + window.map.move_x, player.y + window.map.move_y, player.width, player.height)) {
+          continue;
+        }
+        x = player.x + player.width / 2;
+        y = player.y + player.height / 2;
+        dx = x - ownPlayer.x;
+        dy = y - ownPlayer.y;
+        distance = dx * dx + dy * dy;
+        if (distance < closest) {
+          closest = distance;
+          target = [x, y];
+        }
+      }
+      if (target == null) {
+        direction = ownPlayer.rotated ? -1 : 1;
+        target = [ownPlayer.x + direction * 500, ownPlayer.y + ownPlayer.height / 2];
+      }
+      return send("p" + target[0] + "," + target[1]);
+    };
+    fireButton.addEventListener('pointerdown', function(event) {
+      if (event.pointerType === 'mouse' && event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      return fireAtOpponent();
+    });
+    fireButton.addEventListener('click', function(event) {
+      if (event.detail === 0) {
+        return fireAtOpponent();
+      }
+    });
+    chatToggle.addEventListener('click', function() {
+      if (!joined) {
+        return;
+      }
+      if (chatPanel.classList.contains('chat-open')) {
+        return closeChat();
+      } else {
+        return focusChat();
+      }
+    });
+    chatClose.addEventListener('click', function() {
+      if (joined) {
+        return closeChat();
+      }
+    });
+    canvas.addEventListener('pointerdown', function(event) {
+      if (!(joined && (ownPlayer != null))) {
+        return;
+      }
+      if (event.pointerType === 'mouse' && event.button !== 0) {
+        return;
+      }
+      if (typing()) {
+        if (event.pointerType !== 'touch') {
+          return;
+        }
+        closeChat();
+      }
+      event.preventDefault();
+      canvasPointers[event.pointerId] = {
+        startedAt: Date.now(),
+        type: event.pointerType
+      };
+      return typeof canvas.setPointerCapture === "function" ? canvas.setPointerCapture(event.pointerId) : void 0;
+    });
+    canvas.addEventListener('pointerup', function(event) {
+      var pointer, rect, x, y;
+
+      pointer = canvasPointers[event.pointerId];
+      if (pointer == null) {
+        return;
+      }
+      delete canvasPointers[event.pointerId];
+      if (!(joined && (ownPlayer != null) && !typing())) {
+        return;
+      }
+      event.preventDefault();
       rect = canvas.getBoundingClientRect();
+      if (!(rect.width > 0 && rect.height > 0)) {
+        return;
+      }
       x = (event.clientX - rect.left) * canvas.width / rect.width;
       y = (event.clientY - rect.top) * canvas.height / rect.height;
-      if (held > 2000) {
+      if (pointer.type === 'mouse' && Date.now() - pointer.startedAt > 2000) {
         focusChat();
       }
       return send("p" + (x - window.map.move_x) + "," + (y - window.map.move_y));
     });
+    _ref1 = ['pointercancel', 'lostpointercapture'];
+    for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+      eventName = _ref1[_i];
+      canvas.addEventListener(eventName, function(event) {
+        return delete canvasPointers[event.pointerId];
+      });
+    }
     canvas.addEventListener('contextmenu', function(event) {
       return event.preventDefault();
     });
     window.addEventListener('blur', function() {
-      return mouseDownAt = null;
+      canvasPointers = Object.create(null);
+      return stopAllControls();
+    });
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        return stopAllControls();
+      }
     });
     nicknameInput.focus();
     return connect();

@@ -12,6 +12,9 @@ document.addEventListener 'DOMContentLoaded', ->
   chatStatus = document.getElementById('chat-status')
   playerName = document.getElementById('player-name')
   gameHelp = document.getElementById('game-help')
+  mobileControls = document.getElementById('mobile-controls')
+  chatToggle = document.getElementById('touch-chat')
+  chatClose = document.getElementById('chat-close')
 
   canvas = document.createElement('canvas')
   canvas.id = 'game-canvas'
@@ -52,7 +55,8 @@ document.addEventListener 'DOMContentLoaded', ->
   playersByID = Object.create(null)
   bullets = []
   bonuses = []
-  mouseDownAt = null
+  canvasPointers = Object.create(null)
+  activeControls = Object.create(null)
   sentChatAt = []
   lastChatAt = 0
   window.map = move_x: 0, move_y: 0
@@ -67,6 +71,16 @@ document.addEventListener 'DOMContentLoaded', ->
   typing = ->
     element = document.activeElement
     element? and (element.tagName in ['INPUT', 'TEXTAREA', 'SELECT'] or element.isContentEditable)
+
+  stopControl = (pointerId) ->
+    control = activeControls[pointerId]
+    return unless control?
+    window.clearInterval(control.timer) if control.timer?
+    delete activeControls[pointerId]
+
+  stopAllControls = ->
+    for own pointerId of activeControls
+      stopControl(pointerId)
 
   addChat = (name, text) ->
     return unless typeof text is 'string'
@@ -87,7 +101,18 @@ document.addEventListener 'DOMContentLoaded', ->
 
   focusChat = ->
     return unless joined
+    stopAllControls()
+    chatPanel.classList.add('chat-open')
+    mobileControls.classList.add('chat-active')
+    chatToggle.setAttribute('aria-expanded', 'true')
     chatInput.focus()
+
+  closeChat = ->
+    chatPanel.classList.remove('chat-open')
+    mobileControls.classList.remove('chat-active')
+    chatToggle.setAttribute('aria-expanded', 'false')
+    chatInput.blur() if document.activeElement is chatInput
+    canvas.focus()
 
   # Render at the display refresh rate, one server snapshot behind (50 ms).
   # Respawn counters and large jumps bypass interpolation.
@@ -214,6 +239,7 @@ document.addEventListener 'DOMContentLoaded', ->
     send("n#{nickname}")
 
   showDisconnected = (message) ->
+    stopAllControls()
     joined = false
     ownID = null
     ownPlayer = null
@@ -225,9 +251,13 @@ document.addEventListener 'DOMContentLoaded', ->
     window.map.move_x = 0
     window.map.move_y = 0
     window.char = null
-    mouseDownAt = null
+    canvasPointers = Object.create(null)
     joinScreen.hidden = false
     chatPanel.hidden = true
+    chatPanel.classList.remove('chat-open')
+    mobileControls.classList.remove('chat-active')
+    chatToggle.setAttribute('aria-expanded', 'false')
+    mobileControls.hidden = true
     gameHelp.hidden = true
     joinStatus.textContent = ''
     joinError.textContent = message
@@ -264,6 +294,7 @@ document.addEventListener 'DOMContentLoaded', ->
             window.char = id: ownID, numer: -1
             joinScreen.hidden = true
             chatPanel.hidden = false
+            mobileControls.hidden = false
             gameHelp.hidden = false
             playerName.textContent = currentName
             joinError.textContent = ''
@@ -365,8 +396,7 @@ document.addEventListener 'DOMContentLoaded', ->
     if typing()
       if key is 'escape' and document.activeElement is chatInput
         event.preventDefault()
-        chatInput.blur()
-        canvas.focus()
+        closeChat()
       return
     return unless joined and ownPlayer?
     if key is 't'
@@ -378,19 +408,92 @@ document.addEventListener 'DOMContentLoaded', ->
       event.preventDefault()
       send(command)
 
-  canvas.addEventListener 'mousedown', ->
-    mouseDownAt = Date.now() if joined and ownPlayer? and not typing()
-  canvas.addEventListener 'mouseup', (event) ->
-    return unless joined and ownPlayer? and mouseDownAt? and not typing()
-    held = Date.now() - mouseDownAt
-    mouseDownAt = null
+  # Each finger owns its own timer, allowing movement and aiming at once.
+  bindControl = (button, command, repeat) ->
+    button.addEventListener 'pointerdown', (event) ->
+      return unless joined and ownPlayer?
+      return if event.pointerType is 'mouse' and event.button isnt 0
+      closeChat() if typing()
+      event.preventDefault()
+      return if activeControls[event.pointerId]?
+      send(command)
+      timer = null
+      if repeat
+        timer = window.setInterval((-> send(command) if joined and ownPlayer? and not typing()), 70)
+      activeControls[event.pointerId] = timer: timer
+      button.setPointerCapture?(event.pointerId)
+    for eventName in ['pointerup', 'pointercancel', 'lostpointercapture']
+      button.addEventListener eventName, (event) -> stopControl(event.pointerId)
+    # Keyboard and assistive-technology activation does not have a pointerdown.
+    button.addEventListener 'click', (event) ->
+      send(command) if event.detail is 0 and joined and ownPlayer? and not typing()
+
+  bindControl(document.getElementById('touch-left'), 'l', true)
+  bindControl(document.getElementById('touch-right'), 'r', true)
+  bindControl(document.getElementById('touch-up'), 't', true)
+  bindControl(document.getElementById('touch-stop'), 'b', false)
+  bindControl(document.getElementById('touch-reset'), 'q', false)
+
+  fireButton = document.getElementById('touch-fire')
+  fireAtOpponent = ->
+    return unless joined and ownPlayer?
+    closeChat() if typing()
+    target = null
+    closest = Infinity
+    for player in players when player.id isnt ownID
+      continue unless visible(player.x + window.map.move_x, player.y + window.map.move_y, player.width, player.height)
+      x = player.x + player.width / 2
+      y = player.y + player.height / 2
+      dx = x - ownPlayer.x
+      dy = y - ownPlayer.y
+      distance = dx * dx + dy * dy
+      if distance < closest
+        closest = distance
+        target = [x, y]
+    unless target?
+      direction = if ownPlayer.rotated then -1 else 1
+      target = [ownPlayer.x + direction * 500, ownPlayer.y + ownPlayer.height / 2]
+    send("p#{target[0]},#{target[1]}")
+
+  fireButton.addEventListener 'pointerdown', (event) ->
+    return if event.pointerType is 'mouse' and event.button isnt 0
+    event.preventDefault()
+    fireAtOpponent()
+  fireButton.addEventListener 'click', (event) -> fireAtOpponent() if event.detail is 0
+  chatToggle.addEventListener 'click', ->
+    return unless joined
+    if chatPanel.classList.contains('chat-open') then closeChat() else focusChat()
+  chatClose.addEventListener 'click', -> closeChat() if joined
+
+  canvas.addEventListener 'pointerdown', (event) ->
+    return unless joined and ownPlayer?
+    return if event.pointerType is 'mouse' and event.button isnt 0
+    if typing()
+      return unless event.pointerType is 'touch'
+      closeChat()
+    event.preventDefault()
+    canvasPointers[event.pointerId] = startedAt: Date.now(), type: event.pointerType
+    canvas.setPointerCapture?(event.pointerId)
+  canvas.addEventListener 'pointerup', (event) ->
+    pointer = canvasPointers[event.pointerId]
+    return unless pointer?
+    delete canvasPointers[event.pointerId]
+    return unless joined and ownPlayer? and not typing()
+    event.preventDefault()
     rect = canvas.getBoundingClientRect()
+    return unless rect.width > 0 and rect.height > 0
     x = (event.clientX - rect.left) * canvas.width / rect.width
     y = (event.clientY - rect.top) * canvas.height / rect.height
-    focusChat() if held > 2000
+    focusChat() if pointer.type is 'mouse' and Date.now() - pointer.startedAt > 2000
     send("p#{x - window.map.move_x},#{y - window.map.move_y}")
+  for eventName in ['pointercancel', 'lostpointercapture']
+    canvas.addEventListener eventName, (event) -> delete canvasPointers[event.pointerId]
   canvas.addEventListener 'contextmenu', (event) -> event.preventDefault()
-  window.addEventListener 'blur', -> mouseDownAt = null
+  window.addEventListener 'blur', ->
+    canvasPointers = Object.create(null)
+    stopAllControls()
+  document.addEventListener 'visibilitychange', ->
+    stopAllControls() if document.hidden
 
   nicknameInput.focus()
   connect()

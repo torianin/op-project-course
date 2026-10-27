@@ -3,7 +3,7 @@
   <head>
     <title>Fat Angel Multiplayer</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Fat Angel Multiplayer">
     <meta name="author" content="Robert Ignasiak">
     <link href="/img/favicon.ico" rel="icon" type="image/x-icon" />
@@ -15,6 +15,7 @@
       <form id="join-form" class="join-card" aria-labelledby="join-title" novalidate>
         <h1 id="join-title">Fat Angel Multiplayer</h1>
         <p>Lataj, strzelaj sercami i spotkaj innych graczy.</p>
+        <p class="mobile-instructions">Przytrzymaj strzałki, aby latać. Dotknij planszy, żeby strzelić w wybrane miejsce.</p>
         <label for="nickname">Twój nick</label>
         <input id="nickname" name="nickname" type="text" maxlength="60" autocomplete="nickname" spellcheck="false" aria-describedby="nickname-hint join-error" required>
         <p id="nickname-hint" class="input-hint">Od 2 do 30 znaków. Jeden pokój, do 25 graczy.</p>
@@ -27,15 +28,29 @@
     <div id="game-help" class="game-help" hidden>A/D — ruch · W — lot · S — hamuj · R — pozycja · klik — strzał · T — czat</div>
 
     <aside id="chat-panel" class="chat-panel" aria-label="Czat graczy" hidden>
-      <header class="chat-heading">Czat <span id="player-name"></span></header>
+      <header class="chat-heading">Czat <span id="player-name"></span><button id="chat-close" class="chat-close" type="button" aria-label="Zamknij czat">×</button></header>
       <ol id="chat-history" class="chat-history" role="log" aria-live="polite" aria-relevant="additions"></ol>
       <form id="chat-form" class="chat-form">
         <label for="chat-input" class="visually-hidden">Wiadomość do graczy</label>
-        <input id="chat-input" name="message" type="text" maxlength="1000" autocomplete="off" placeholder="T — napisz wiadomość" aria-describedby="chat-status">
+        <input id="chat-input" name="message" type="text" maxlength="1000" autocomplete="off" placeholder="Napisz wiadomość…" aria-describedby="chat-status">
         <button type="submit">Wyślij</button>
       </form>
       <p id="chat-status" class="chat-status" role="status"></p>
     </aside>
+
+    <div id="mobile-controls" class="mobile-controls" role="group" aria-label="Sterowanie dotykowe" hidden>
+      <div class="mobile-pad" aria-label="Ruch">
+        <button id="touch-up" class="touch-control touch-up" type="button" aria-label="Leć w górę"><span aria-hidden="true">▲</span><small>Góra</small></button>
+        <button id="touch-left" class="touch-control touch-left" type="button" aria-label="Leć w lewo"><span aria-hidden="true">◀</span><small>Lewo</small></button>
+        <button id="touch-stop" class="touch-control touch-stop" type="button" aria-label="Zatrzymaj ruch poziomy"><span aria-hidden="true">■</span><small>Stop</small></button>
+        <button id="touch-right" class="touch-control touch-right" type="button" aria-label="Leć w prawo"><span aria-hidden="true">▶</span><small>Prawo</small></button>
+      </div>
+      <div class="mobile-actions" aria-label="Akcje">
+        <button id="touch-chat" class="touch-control touch-chat" type="button" aria-label="Otwórz czat" aria-controls="chat-panel" aria-expanded="false"><span aria-hidden="true">💬</span><small>Czat</small></button>
+        <button id="touch-reset" class="touch-control touch-reset" type="button" aria-label="Zmień pozycję"><span aria-hidden="true">↻</span><small>Reset</small></button>
+        <button id="touch-fire" class="touch-control touch-fire" type="button" aria-label="Strzel"><span aria-hidden="true">♥</span><small>Strzał</small></button>
+      </div>
+    </div>
     <noscript>Do gry potrzebna jest włączona obsługa JavaScript.</noscript>
   </body>
 </html>
