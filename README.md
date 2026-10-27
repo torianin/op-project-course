@@ -4,8 +4,9 @@ Przeglądarkowa gra multiplayer: latające anioły, strzelanie sercami i wspóln
 Serwer w Ruby utrzymuje jeden pokój; przeglądarka rysuje rozgrywkę na Canvas.
 
 **Publiczna gra:** [fat-angel.onrender.com](https://fat-angel.onrender.com).
-Ta dokumentacja opisuje branch **`0.0.2`**. Publiczna usługa korzysta z wcześniejszego
-brancha `codex/ai-fun`; zmiany 0.0.2 wymagają osobnego wdrożenia.
+Ta dokumentacja opisuje wydanie **`0.0.2`**, dostępne na branchu o tej samej nazwie.
+Publiczna usługa jest wdrażana z brancha produkcyjnego `codex/ai-fun`, aktualizowanego
+do zatwierdzonego wydania przez fast-forward.
 
 ## Zmiany w 0.0.2
 
@@ -298,14 +299,15 @@ Publiczna usługa została utworzona bezpośrednio z repozytorium
 `torianin/op-project-course`, brancha `codex/ai-fun`, jako pojedynczy Docker
 w regionie Frankfurt na planie `free`. Automatyczne wdrożenia są wyłączone.
 Kolejne wdrożenie wymaga ręcznego uruchomienia po wypchnięciu zmian.
-Przy wydaniu 0.0.2 zmień branch usługi na `0.0.2` i wdroż go ręcznie;
-sam ten branch ani plik `render.yaml` nie zmienia istniejącej usługi.
+Wydanie 0.0.2 trafia na branch produkcyjny `codex/ai-fun` przez fast-forward,
+z zachowaniem osobnego brancha `0.0.2`. Po pushu uruchom ręczny deploy najnowszego
+commita. Sam push ani plik `render.yaml` nie zmienia działającej wersji usługi.
 
 Obecna usługa korzysta z kontroli portu TCP: jej `healthCheckPath` jest pusty.
 Endpoint HTTP `/healthz` działa i można go wskazać osobno w ustawieniach.
 Plik `render.yaml` jest alternatywą do utworzenia usługi przez Blueprint;
-w tej konfiguracji ścieżka `/healthz` jest już zadeklarowana. Blueprint nadal wskazuje
-`codex/ai-fun`; przed użyciem go do wydania 0.0.2 zmień jego pole `branch` na `0.0.2`.
+w tej konfiguracji ścieżka `/healthz` jest już zadeklarowana. Blueprint wskazuje
+branch produkcyjny `codex/ai-fun`.
 
 Render przekazuje `PORT` i zapewnia publiczne HTTPS oraz `wss://` pod `/ws`.
 Plan `free` usypia usługę po 15 minutach bez przychodzącego ruchu HTTP lub
