@@ -1,118 +1,78 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
+import { GameClient, get } from '../test/ws-client.mjs';
 
 const base = new URL(process.argv[2] || 'http://127.0.0.1:8080');
-const socketURL = new URL('/ws', base);
-socketURL.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
-
-async function get(path) {
-  const response = await fetch(new URL(path, base), { signal: AbortSignal.timeout(30_000) });
-  assert.equal(response.status, 200, `${path} must return HTTP 200`);
-  return response;
-}
-
-async function connect() {
-  const socket = new WebSocket(socketURL);
-  const inbox = [];
-  const waiters = [];
-  socket.addEventListener('message', ({ data }) => {
-    const index = waiters.findIndex(({ predicate }) => predicate(data));
-    if (index < 0) inbox.push(data);
-    else waiters.splice(index, 1)[0].resolve(data);
-  });
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('WebSocket opening timed out')), 10_000);
-    socket.addEventListener('open', () => { clearTimeout(timeout); resolve(); }, { once: true });
-    socket.addEventListener('error', () => { clearTimeout(timeout); reject(new Error('WebSocket opening failed')); }, { once: true });
-  });
-  function receive(predicate) {
-    const index = inbox.findIndex(predicate);
-    if (index >= 0) return Promise.resolve(inbox.splice(index, 1)[0]);
-    return new Promise((resolve, reject) => {
-      const waiter = { predicate, resolve: value => { clearTimeout(timeout); resolve(value); } };
-      const timeout = setTimeout(() => {
-        waiters.splice(waiters.indexOf(waiter), 1);
-        reject(new Error('Expected WebSocket message did not arrive'));
-      }, 5_000);
-      waiters.push(waiter);
-    });
-  }
-  return {
-    socket,
-    receive,
-    async request(message, prefix) {
-      const response = receive(data => data.startsWith(prefix));
-      socket.send(message);
-      return response;
-    },
-    async state() {
-      const data = await this.request('j', 'j:');
-      assert(!data.includes('NaN') && !data.includes('Infinity'), 'State must contain finite coordinates');
-      return JSON.parse(data.slice(2));
-    },
-    async close() {
-      if (socket.readyState === WebSocket.CLOSED) return;
-      await new Promise(resolve => {
-        const timeout = setTimeout(resolve, 2_000);
-        socket.addEventListener('close', () => { clearTimeout(timeout); resolve(); }, { once: true });
-        socket.close();
-      });
-    },
-  };
-}
-
 const clients = [];
 try {
-  assert.equal((await (await get('/healthz')).json()).status, 'ok');
-  assert.match(await (await get('/')).text(), /Fat Angel Multiplayer/);
-  assert.match(await (await get('/application.js')).text(), /WebSocket/);
-  assert((await (await get('/img/czerwony/0.png')).arrayBuffer()).byteLength > 0);
-  const [first, second] = await Promise.all([connect(), connect()]);
-  clients.push(first, second);
-  const firstID = Number((await first.request('i', 'i:')).slice(2));
-  const secondID = Number((await second.request('i', 'i:')).slice(2));
-  assert(Number.isSafeInteger(firstID) && firstID > 0);
-  assert(Number.isSafeInteger(secondID) && secondID > 0);
-  assert.notEqual(firstID, secondID);
+  assert.equal((await (await get(base, '/healthz')).json()).status, 'ok');
+  assert.match(await (await get(base, '/')).text(), /Fat Angel Multiplayer/);
+  assert.match(await (await get(base, '/application.js')).text(), /WebSocket/);
+  assert((await (await get(base, '/img/czerwony/0.png')).arrayBuffer()).byteLength > 0);
+
+  const first = await GameClient.connect(base);
+  clients.push(first);
+  const second = await GameClient.connect(base);
+  clients.push(second);
   const suffix = Date.now().toString(36);
   const firstName = `SmokeA-${suffix}`;
   const secondName = `SmokeB-${suffix}`;
-  first.socket.send(`n${firstName}`);
-  second.socket.send(`n${secondName}`);
-  const secondState = await second.state();
-  assert(secondState.id.includes(firstID) && secondState.id.includes(secondID));
-  const initial = await first.state();
-  assert.equal(initial.name[initial.id.indexOf(firstID)], firstName);
-  assert.equal(initial.name[initial.id.indexOf(secondID)], secondName);
+  const firstIdentity = await first.join(firstName);
+  const secondIdentity = await second.join(secondName);
+  assert.notEqual(firstIdentity.id, secondIdentity.id);
+  assert.equal(firstIdentity.name, firstName);
+  assert.equal(secondIdentity.name, secondName);
 
-  const initialX = initial.coordinates[initial.id.indexOf(firstID)][0];
+  const initial = await first.snapshot();
+  assert(initial.id.includes(firstIdentity.id) && initial.id.includes(secondIdentity.id));
+  assert.equal(initial.name[initial.id.indexOf(firstIdentity.id)], firstName);
+  assert.equal(initial.name[initial.id.indexOf(secondIdentity.id)], secondName);
+
+  // With no subscription and no polling, the simulation must still advance.
+  const initialX = initial.coordinates[initial.id.indexOf(firstIdentity.id)][0];
   first.socket.send('r');
-  await delay(40);
-  const moved = await first.state();
-  assert(moved.coordinates[moved.id.indexOf(firstID)][0] > initialX, 'Movement must update player coordinates');
-  first.socket.send('p9999.5,-9999.5');
-  const shot = await first.state();
-  assert(shot.bullets.length > 0, 'Fractional aim coordinates must produce a bullet');
-  const coordinates = shot.coordinates[shot.id.indexOf(firstID)];
-  first.socket.send(`p${coordinates[0]},${coordinates[1]}`);
-  const zeroDistanceShot = await first.state();
-  assert(zeroDistanceShot.bullets.every(point => point.every(Number.isFinite)));
+  await delay(400);
+  const idle = await first.snapshot();
+  assert(idle.tick - initial.tick >= 12, 'Simulation must advance without snapshot requests');
+  assert(idle.coordinates[idle.id.indexOf(firstIdentity.id)][0] > initialX + 3, 'Movement must advance without polling');
 
-  const message = `${firstName}: smoke-${suffix}`;
-  const echoes = [first.receive(data => data === message), second.receive(data => data === message)];
-  first.socket.send(`msmoke-${suffix}`);
-  assert.deepEqual(await Promise.all(echoes), [message, message]);
+  // Read-only requests must not accelerate the authoritative clock.
+  const beforePolling = performance.now();
+  let polled = idle;
+  for (let index = 0; index < 10; index++) {
+    await delay(40);
+    polled = await first.snapshot();
+  }
+  const elapsed = performance.now() - beforePolling;
+  const tickDelta = polled.tick - idle.tick;
+  assert(tickDelta >= elapsed * 0.04 && tickDelta <= elapsed * 0.08 + 6,
+    `Polling must preserve a roughly 60 Hz clock: ${tickDelta} ticks / ${elapsed.toFixed(0)} ms`);
+
+  await first.subscribe();
+  await second.subscribe();
+  const pushedAfter = first.sequence;
+  const pushStarted = performance.now();
+  await delay(1_200);
+  const pushes = first.packets.filter(packet => packet.type === 'j' && packet.sequence > pushedAfter);
+  const pushElapsed = performance.now() - pushStarted;
+  assert(pushes.length >= 12 && pushes.length <= 36,
+    `Subscribed state should arrive near 20 Hz without polling: ${pushes.length} / ${pushElapsed.toFixed(0)} ms`);
+  assert(pushes.at(-1).value.tick > pushes[0].value.tick);
+
+  const shotState = first.waitFor(packet => packet.type === 'j' && packet.value.bullets.length > 0);
+  first.socket.send('p9999.5,-9999.5');
+  const shot = (await shotState).value;
+  assert(shot.bullets.every(point => point.every(Number.isFinite)));
+
+  const text = `smoke-${suffix}`;
+  const echoes = [first, second].map(client => client.waitFor(packet => packet.type === 'c' && packet.value.text === text));
+  first.socket.send(`m${text}`);
+  for (const packet of await Promise.all(echoes)) assert.deepEqual(packet.value, { id: firstIdentity.id, name: firstName, text });
+
+  const departure = first.waitFor(packet => packet.type === 'j' && !packet.value.id.includes(secondIdentity.id), { timeout: 15_000 });
   await second.close();
-  let remaining;
-  // A hosted proxy may finish the client close before releasing its upstream socket.
-  const disconnectDeadline = Date.now() + 15_000;
-  do {
-    remaining = await first.state();
-    if (!remaining.id.includes(secondID)) break;
-    await delay(250);
-  } while (Date.now() < disconnectDeadline);
-  assert(!remaining.id.includes(secondID), 'Disconnected player must leave the room');
-  console.log(`PASS ${base.origin}: HTTP, assets, two players, names, movement, shots, chat, disconnect`);
+  await departure;
+  console.log(`PASS ${base.origin}: HTTP, assets, joined identities, independent 60 Hz simulation, pushed state, shots, structured chat, disconnect`);
 } finally {
   await Promise.all(clients.map(client => client.close()));
 }

@@ -1,2 +1,2 @@
 require_relative 'server'
-run WebSocketApp.new
+run FatAngel::WebSocketApp.new

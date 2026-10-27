@@ -28,6 +28,7 @@ RUN apt-get update \
 
 COPY --from=build /usr/local/bundle/ /usr/local/bundle/
 COPY --chown=app:app Gemfile Gemfile.lock server.rb config.ru ./
+COPY --chown=app:app lib/ ./lib/
 COPY --chown=app:app views/ ./views/
 COPY --chown=app:app public/ ./public/
 

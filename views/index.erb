@@ -7,15 +7,35 @@
     <meta name="description" content="Fat Angel Multiplayer">
     <meta name="author" content="Robert Ignasiak">
     <link href="/img/favicon.ico" rel="icon" type="image/x-icon" />
-    <script src="js/jquery-1.9.1.min.js"></script>
-    <script src='application.js'></script>
-    <script src='js/canvasquery.js'></script>
-    <script src='js/canvasquery.framework.js'></script>
-    <script src='js/alertify.js'></script>
     <link rel="stylesheet" type="text/css" href="css/style.css">
-    <link rel="stylesheet" type="text/css" href="css/alertify.core.css">
-    <link rel="stylesheet" type="text/css" href="css/alertify.default.css">
+    <script src="application.js" defer></script>
   </head>
   <body>
+    <main id="join-screen" class="join-screen">
+      <form id="join-form" class="join-card" aria-labelledby="join-title" novalidate>
+        <h1 id="join-title">Fat Angel Multiplayer</h1>
+        <p>Lataj, strzelaj sercami i spotkaj innych graczy.</p>
+        <label for="nickname">Twój nick</label>
+        <input id="nickname" name="nickname" type="text" maxlength="60" autocomplete="nickname" spellcheck="false" aria-describedby="nickname-hint join-error" required>
+        <p id="nickname-hint" class="input-hint">Od 2 do 30 znaków. Jeden pokój, do 25 graczy.</p>
+        <button id="join-button" type="submit" disabled>Dołącz do gry</button>
+        <p id="join-status" class="join-status" role="status"></p>
+        <p id="join-error" class="join-error" role="alert"></p>
+      </form>
+    </main>
+
+    <div id="game-help" class="game-help" hidden>A/D — ruch · W — lot · S — hamuj · R — pozycja · klik — strzał · T — czat</div>
+
+    <aside id="chat-panel" class="chat-panel" aria-label="Czat graczy" hidden>
+      <header class="chat-heading">Czat <span id="player-name"></span></header>
+      <ol id="chat-history" class="chat-history" role="log" aria-live="polite" aria-relevant="additions"></ol>
+      <form id="chat-form" class="chat-form">
+        <label for="chat-input" class="visually-hidden">Wiadomość do graczy</label>
+        <input id="chat-input" name="message" type="text" maxlength="1000" autocomplete="off" placeholder="T — napisz wiadomość" aria-describedby="chat-status">
+        <button type="submit">Wyślij</button>
+      </form>
+      <p id="chat-status" class="chat-status" role="status"></p>
+    </aside>
+    <noscript>Do gry potrzebna jest włączona obsługa JavaScript.</noscript>
   </body>
 </html>

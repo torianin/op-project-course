@@ -502,7 +502,7 @@
 			notify : function (message, type, wait) {
 				var log = document.createElement("article");
 				log.className = "alertify-log" + ((typeof type === "string" && type !== "") ? " alertify-log-" + type : "");
-				log.innerHTML = message;
+				log.textContent = message;
 				// append child
 				elLog.appendChild(log);
 				// triggers the CSS animation
