@@ -252,6 +252,14 @@ sprawdza m.in. Origin, granice Unicode, przypisanie nadawcy, limity, ramki binar
 i niepoprawny UTF-8. Oba zamykają swoje połączenia. Opcjonalny argument to adres
 serwera z wersją 0.0.2. Testy limitów uruchamiaj osobno, na instancji testowej.
 
+Test bezpieczeństwa wymaga otrzymania konkretnych kodów zamknięcia WebSocket.
+W sprawdzeniu publicznego wydania 0.0.2 serwer usuwał sesje po ramce binarnej,
+przekroczeniu 4096 bajtów, niepoprawnym UTF-8 i zalewie żądań w około sekundę.
+Odrzucone połączenia przestawały obsługiwać polecenia,
+ale publiczna ścieżka przez proxy nie dostarczała klientowi ramki zamknięcia.
+W takim przypadku skrypt zgłasza timeout; nie oznacza to zaliczenia testu kodu
+zamknięcia. Pełny test tych kodów wykonuj również lokalnie, bez proxy.
+
 ## HTTP i minimalny protokół WebSocket
 
 | Adres | Funkcja |

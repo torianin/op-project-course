@@ -12,7 +12,9 @@ async function connect() {
   return client;
 }
 async function errorFor(client, message, code) {
-  const packet = await client.request(message, packet => ['a', 'c', 'e', 'j'].includes(packet.type));
+  const packet = await client.request(message, packet =>
+    ['a', 'e', 'j'].includes(packet.type) ||
+    (packet.type === 'c' && (!client.identity || packet.value.id === client.identity.id)));
   assert.equal(packet.type, 'e', `Rejected input must not produce an accepted packet: ${JSON.stringify(packet)}`);
   assert.equal(packet.value.code, code);
   assert.equal(typeof packet.value.message, 'string');
@@ -20,10 +22,17 @@ async function errorFor(client, message, code) {
   await delay(120); // Keep validation-error checks below the error-response bucket limit.
 }
 async function chat(sender, recipient, name, input, expected = input.normalize('NFC').trim()) {
-  const received = recipient.waitFor(packet => packet.type === 'c');
+  const expectedMessage = { id: sender.identity.id, name, text: expected };
+  const received = [sender, recipient].map(client => client.waitFor(packet =>
+    packet.type === 'c' && packet.value.id === expectedMessage.id &&
+    packet.value.name === name && packet.value.text === expected));
   sender.socket.send(`m${input}`);
-  const packet = await received;
-  assert.deepEqual(packet.value, { id: sender.identity.id, name, text: expected });
+  for (const packet of await Promise.all(received)) assert.deepEqual(packet.value, expectedMessage);
+}
+function expectClose(client, label) {
+  return client.waitUntilClosed().catch(error => {
+    throw new Error(`${label}: ${error.message}; public proxies can hide close frames. Verify backend removal separately.`, { cause: error });
+  });
 }
 
 try {
@@ -96,12 +105,12 @@ try {
   console.log('PASS shared IP chat budget: burst of 10 across different sockets');
 
   const binary = await connect();
-  const binaryClose = binary.waitUntilClosed();
+  const binaryClose = expectClose(binary, 'Binary frame rejection');
   binary.socket.send(new Uint8Array([0x61, 0x62]));
   assert.equal((await binaryClose).code, 4003, 'Binary messages must close with the bad-type policy code');
   const oversized = await connect();
   await errorFor(oversized, `n${'x'.repeat(4095)}`, 'invalid_name'); // Exactly 4096 bytes reaches application validation.
-  const oversizedClose = oversized.waitUntilClosed();
+  const oversizedClose = expectClose(oversized, 'Oversized frame rejection');
   oversized.socket.send(`m${'x'.repeat(4096)}`);
   assert.equal((await oversizedClose).code, 1009, 'Frames over 4096 bytes must be rejected by the frame-size limit');
   const invalidUTF8 = await rawWebSocket(base, { invalidText: Buffer.from([0xc3, 0x28]) });
@@ -110,7 +119,7 @@ try {
   console.log('PASS wire protocol: binary, oversized frames and invalid UTF-8 rejected');
 
   const flood = await connect();
-  const floodClose = flood.waitUntilClosed();
+  const floodClose = expectClose(flood, 'Message flood rejection');
   for (let index = 0; index < 240; index++) flood.socket.send('i');
   assert.equal((await floodClose).code, 4009, 'General message floods must close with the rate-limit policy code');
   assert.equal((await (await get(base, '/healthz')).json()).status, 'ok');
